@@ -25,6 +25,14 @@ export const CB_STATUSES = ['published', 'draft', 'archived', 'purged']
 export const STATUS_LABELS = { published: 'Published', draft: 'Draft', archived: 'Archived', purged: 'Purged', unknown: 'Unknown / No CB Match' }
 export const STATUS_COLORS = { published: C.green, draft: C.blue, archived: C.amber, purged: C.red, unknown: C.muted }
 
-export const API_BASE = window.location.hostname === 'localhost' && window.location.port !== '8000'
-  ? 'http://localhost:8000'
-  : ''
+// Backend URL, resolved in priority order:
+//   1. VITE_API_URL, if set (e.g. in .env.local) -- the explicit override,
+//      needed whenever the frontend and backend are on different hosts,
+//      which is exactly the case when either one (or both) is exposed
+//      through a separate ngrok tunnel with its own domain.
+//   2. Falls back to localhost:8000 for local dev with no .env file at
+//      all -- the previous hostname-sniffing approach broke the moment
+//      the frontend was accessed via anything other than literally
+//      "localhost" (an ngrok URL, a LAN IP, etc.), since window.location
+//      has no way of knowing where a SEPARATE backend tunnel lives.
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
