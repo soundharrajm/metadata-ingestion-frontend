@@ -427,16 +427,29 @@ export default function ProjectMetadataIngestionReport() {
         )}
 
         {loading && (
-          <div style={{ textAlign: 'center', padding: 80 }}>
-            <div style={{ width: 240, height: 4, margin: '0 auto 16px', background: C.border, borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 200px)', textAlign: 'center' }}>
+            <div style={{ width: 240, height: 4, marginBottom: 16, background: C.border, borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
               <div style={{
                 position: 'absolute', top: 0, left: 0, height: '100%', width: '40%',
-                background: C.pu, borderRadius: 4,
-                animation: 'pmir-line-slide 1.2s ease-in-out infinite',
+                background: 'linear-gradient(90deg, #7c6af7, #2563eb, #16a34a, #d97706, #dc2626, #7c6af7)',
+                backgroundSize: '300% 100%',
+                borderRadius: 4,
+                animation: 'pmir-line-slide 1.2s ease-in-out infinite, pmir-hue-shift 2s linear infinite',
               }} />
             </div>
-            <div style={{ color: C.muted, fontSize: 13 }}>Loading classification data…</div>
-            <style>{'@keyframes pmir-line-slide { 0% { left: -40% } 50% { left: 60% } 100% { left: 100% } }'}</style>
+            <div style={{
+              fontSize: 13, fontWeight: 600,
+              background: 'linear-gradient(90deg, #7c6af7, #2563eb, #16a34a, #d97706, #dc2626, #7c6af7)',
+              backgroundSize: '300% 100%',
+              WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
+              animation: 'pmir-hue-shift 2s linear infinite',
+            }}>
+              Loading classification data…
+            </div>
+            <style>{`
+              @keyframes pmir-line-slide { 0% { left: -40% } 50% { left: 60% } 100% { left: 100% } }
+              @keyframes pmir-hue-shift { 0% { background-position: 0% 50% } 100% { background-position: 300% 50% } }
+            `}</style>
           </div>
         )}
 
