@@ -36,3 +36,11 @@ export const STATUS_COLORS = { published: C.green, draft: C.blue, archived: C.am
 //      "localhost" (an ngrok URL, a LAN IP, etc.), since window.location
 //      has no way of knowing where a SEPARATE backend tunnel lives.
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+// ngrok's free tier shows an interstitial "this site is served by ngrok"
+// warning page to ALL browser requests, before they ever reach the
+// actual backend -- that page has none of the backend's own CORS
+// headers, since Flask never even sees the request. This header tells
+// ngrok to skip that page entirely and forward straight through. Has no
+// effect (and is harmless) if the backend isn't behind ngrok at all.
+export const FETCH_HEADERS = { 'ngrok-skip-browser-warning': 'true' }

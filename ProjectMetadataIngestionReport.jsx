@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { C, CATEGORIES, CATEGORY_LABELS, CB_STATUSES, STATUS_LABELS, STATUS_COLORS, API_BASE } from './constants.js'
+import { C, CATEGORIES, CATEGORY_LABELS, CB_STATUSES, STATUS_LABELS, STATUS_COLORS, API_BASE, FETCH_HEADERS } from './constants.js'
 import { buildCrossTab } from './crossTab.js'
 import Cell from './Cell.jsx'
 import DrillDownModal from './DrillDownModal.jsx'
@@ -21,7 +21,7 @@ export default function ProjectMetadataIngestionReport() {
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
-    fetch(`${API_BASE}/projects`).then(r => r.json()).then(setProjects).catch(e => setError(e.message))
+    fetch(`${API_BASE}/projects`, { headers: FETCH_HEADERS }).then(r => r.json()).then(setProjects).catch(e => setError(e.message))
   }, [])
 
   const selectedProject = projects.find(p => p.id === projectId)
@@ -31,7 +31,7 @@ export default function ProjectMetadataIngestionReport() {
     setError(null); setLoading(true)
     try {
       const params = `project_id=${encodeURIComponent(projectId)}&months=${encodeURIComponent(months)}&year=${encodeURIComponent(year)}`
-      const res = await fetch(`${API_BASE}/ingestion/classification-with-status?${params}`)
+      const res = await fetch(`${API_BASE}/ingestion/classification-with-status?${params}`, { headers: FETCH_HEADERS })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to fetch classification')
       setRows(data.rows || [])
@@ -52,7 +52,7 @@ export default function ProjectMetadataIngestionReport() {
       const startDate = `${year}-${String(firstMonth).padStart(2, '0')}-01 00:00:00`
       const endMonth = lastMonth + 1
       const endDate = endMonth > 12 ? `${year + 1}-01-01 00:00:00` : `${year}-${String(endMonth).padStart(2, '0')}-01 00:00:00`
-      const res = await fetch(`${API_BASE}/dvb/fetch?project_id=${projectId}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`)
+      const res = await fetch(`${API_BASE}/dvb/fetch?project_id=${projectId}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`, { headers: FETCH_HEADERS })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'DVB fetch failed')
       setDvbStatus(`✓ ${data.count} rows retrieved`)
@@ -87,7 +87,7 @@ export default function ProjectMetadataIngestionReport() {
     setError(null); setExporting(true)
     try {
       const params = `project_id=${encodeURIComponent(projectId)}&months=${encodeURIComponent(months)}&year=${encodeURIComponent(year)}&include_dvb=${includeDvb}&include_archived_purged=${includeArchivedPurged}`
-      const res = await fetch(`${API_BASE}/ingestion/export?${params}`)
+      const res = await fetch(`${API_BASE}/ingestion/export?${params}`, { headers: FETCH_HEADERS })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || 'Export failed')
