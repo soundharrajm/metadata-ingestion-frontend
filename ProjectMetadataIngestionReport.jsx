@@ -38,12 +38,20 @@ export default function ProjectMetadataIngestionReport() {
       if (!res.ok) throw new Error(data.error || 'Failed to fetch classification')
       setRows(data.rows || [])
       // If "Include DVB" is checked and this project actually has DVB,
-      // pull DVB data automatically as part of the same Fetch click --
-      // previously the checkbox only affected the Excel export, silently
-      // doing nothing for the live view unless "Fetch DVB" was ALSO
-      // clicked separately, which wasn't obvious from the checkbox alone.
+      // kick off a DVB fetch automatically as part of the same Fetch
+      // click -- previously the checkbox only affected the Excel export,
+      // silently doing nothing for the live view unless "Fetch DVB" was
+      // ALSO clicked separately.
+      //
+      // Deliberately NOT awaited here: a real Harmonic fetch on a large
+      // install can take several minutes (confirmed: ~5 min for ~10,000
+      // assets), and awaiting it here would keep the main "Loading..."
+      // state -- and therefore the main tables -- stuck the whole time,
+      // even though the MySQL/Couchbase data was ready almost
+      // immediately. DVB tracks its own separate loading state
+      // (dvbStatus) and runs independently in the background instead.
       if (includeDvb && selectedProject?.has_dvb) {
-        await fetchDvb()
+        fetchDvb()
       }
     } catch (e) {
       setError(e.message)
