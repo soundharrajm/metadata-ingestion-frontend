@@ -426,6 +426,18 @@ export default function ProjectMetadataIngestionReport() {
           </table>
         )}
 
+        {loading && (
+          <div style={{ textAlign: 'center', padding: 80 }}>
+            <div style={{
+              width: 36, height: 36, margin: '0 auto 16px',
+              border: `3px solid ${C.border}`, borderTopColor: C.pu, borderRadius: '50%',
+              animation: 'pmir-spin 0.8s linear infinite',
+            }} />
+            <div style={{ color: C.muted, fontSize: 13 }}>Loading classification data…</div>
+            <style>{'@keyframes pmir-spin { to { transform: rotate(360deg) } }'}</style>
+          </div>
+        )}
+
         {rows.length === 0 && !loading && !error && (
           <div style={{ textAlign: 'center', padding: 60, color: '#cbd5e1' }}>
             Select a project and click Fetch to see the classification breakdown.
