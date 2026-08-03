@@ -15,6 +15,7 @@ export default function ProjectMetadataIngestionReport() {
   const [error, setError] = useState(null)
   const [drillDown, setDrillDown] = useState(null)
   const [dvbStatus, setDvbStatus] = useState(null)
+  const [dvbRows, setDvbRows] = useState([])
   const [contentTypeFilter, setContentTypeFilter] = useState('all')
   const [l2vFilter, setL2vFilter] = useState('all')
   const [includeDvb, setIncludeDvb] = useState(true)
@@ -56,8 +57,10 @@ export default function ProjectMetadataIngestionReport() {
       const res = await fetch(`${API_BASE}/dvb/fetch?project_id=${projectId}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`, { headers: FETCH_HEADERS })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'DVB fetch failed')
+      setDvbRows(data.rows || [])
       setDvbStatus(`✓ ${data.count} rows retrieved`)
     } catch (e) {
+      setDvbRows([])
       setDvbStatus(`✗ ${e.message}`)
     }
   }
@@ -97,6 +100,12 @@ export default function ProjectMetadataIngestionReport() {
   // totals unfiltered regardless of that toggle.
   const totalContents = filteredRows.length
   const totalHours = filteredRows.reduce((sum, r) => sum + (Number(r.duration_hours) || 0), 0)
+
+  // DVB's own totals, kept separate from the MySQL-based ones above --
+  // these two datasets aren't the same rows, so summing them together
+  // would double-count or conflate two different things.
+  const dvbTotalContent = dvbRows.length
+  const dvbTotalHours = dvbRows.reduce((sum, r) => sum + (Number(r.duration_hours) || 0), 0)
 
   const downloadExcel = async () => {
     if (!projectId || !months || !year) { setError('Select a project and enter months/year.'); return }
@@ -144,6 +153,11 @@ export default function ProjectMetadataIngestionReport() {
           <>
             <button onClick={fetchDvb} style={{ ...btnStyle, background: '#fff', color: C.muted, border: `1px solid ${C.border}` }}>Fetch DVB</button>
             {dvbStatus && <span style={{ fontSize: 12, color: dvbStatus.startsWith('✓') ? C.green : dvbStatus.startsWith('✗') ? C.red : C.muted }}>{dvbStatus}</span>}
+            {dvbRows.length > 0 && (
+              <span style={{ fontSize: 12, color: C.muted }}>
+                DVB Total: <strong style={{ color: C.text }}>{dvbTotalContent}</strong> contents, <strong style={{ color: C.text }}>{dvbTotalHours.toFixed(2)}</strong> hrs
+              </span>
+            )}
           </>
         )}
         {rows.length > 0 && (
