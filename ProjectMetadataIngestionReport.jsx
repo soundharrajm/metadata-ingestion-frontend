@@ -3,6 +3,7 @@ import { C, CATEGORIES, CATEGORY_LABELS, CB_STATUSES, STATUS_LABELS, STATUS_COLO
 import { buildCrossTab } from './crossTab.js'
 import Cell from './Cell.jsx'
 import DrillDownModal from './DrillDownModal.jsx'
+import MonthYearPicker from './MonthYearPicker.jsx'
 
 export default function ProjectMetadataIngestionReport() {
   const [projects, setProjects] = useState([])
@@ -122,8 +123,7 @@ export default function ProjectMetadataIngestionReport() {
           <option value="">Select project…</option>
           {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <input value={months} onChange={e => setMonths(e.target.value)} placeholder="Months (e.g. 7 or 7,8)" style={{ ...inputStyle, width: 150 }} />
-        <input type="number" value={year} onChange={e => setYear(e.target.value)} style={{ ...inputStyle, width: 90 }} />
+        <MonthYearPicker months={months} year={year} onMonthsChange={setMonths} onYearChange={setYear} />
         <button onClick={fetchData} disabled={loading} style={{ ...btnStyle, opacity: loading ? 0.6 : 1 }}>{loading ? 'Loading…' : 'Fetch'}</button>
         {selectedProject?.has_dvb && (
           <>
