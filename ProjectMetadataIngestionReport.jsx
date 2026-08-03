@@ -129,10 +129,31 @@ export default function ProjectMetadataIngestionReport() {
 
   const downloadExcel = async () => {
     if (!projectId || !months || !year) { setError('Select a project and enter months/year.'); return }
+    if (rows.length === 0) { setError('Fetch data first, then download.'); return }
     setError(null); setExporting(true)
     try {
-      const params = `project_id=${encodeURIComponent(projectId)}&months=${encodeURIComponent(months)}&year=${encodeURIComponent(year)}&include_dvb=${includeDvb}&include_archived_purged=${includeArchivedPurged}`
-      const res = await fetch(`${API_BASE}/ingestion/export?${params}`, { headers: FETCH_HEADERS })
+      const monthList = months.split(',').map(m => parseInt(m.trim())).filter(Boolean)
+      const res = await fetch(`${API_BASE}/ingestion/export`, {
+        method: 'POST',
+        headers: { ...FETCH_HEADERS, 'Content-Type': 'application/json' },
+        // Sends the data ALREADY sitting in this component's state --
+        // rows/dvbRows were fetched moments ago by the main Fetch/Fetch
+        // DVB buttons. Confirmed in practice: the old GET-based export
+        // re-ran the full MySQL + 45 Couchbase batches + a ~5-minute
+        // Harmonic fetch from scratch on every single export click, for
+        // data the user already had on screen. Sending it directly here
+        // eliminates that entirely -- this is pure Excel generation now,
+        // no backend re-query at all.
+        body: JSON.stringify({
+          project_name: selectedProject?.name || projectId,
+          months: monthList,
+          year: parseInt(year),
+          rows,
+          dvb_rows: dvbRows,
+          include_dvb: includeDvb,
+          include_archived_purged: includeArchivedPurged,
+        }),
+      })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || 'Export failed')
