@@ -26,7 +26,7 @@ export default function DrillDownModal({ items, onClose }) {
                   <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, fontFamily: C.mono }}>{r.current_key}</td>
                   <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}` }}>{r.content_type || '—'}</td>
                   <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}` }}>{r.is_l2v ? '✓' : '—'}</td>
-                  <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, fontFamily: C.mono }}>{r.duration_hours != null ? r.duration_hours.toFixed(2) : '—'}</td>
+                  <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, fontFamily: C.mono }}>{r.duration_hours != null ? Number(r.duration_hours).toFixed(2) : '—'}</td>
                   <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, color: C.muted }}>{r.current_key_updated_date}</td>
                   <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, fontFamily: C.mono, color: C.muted }}>{r.previous_key || '—'}</td>
                   <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, color: C.muted }}>{r.media_updated_date || '—'}</td>

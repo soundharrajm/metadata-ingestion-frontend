@@ -96,7 +96,7 @@ export default function ProjectMetadataIngestionReport() {
   // than the original Content Report tool's convention of always showing
   // totals unfiltered regardless of that toggle.
   const totalContents = filteredRows.length
-  const totalHours = filteredRows.reduce((sum, r) => sum + (r.duration_hours || 0), 0)
+  const totalHours = filteredRows.reduce((sum, r) => sum + (Number(r.duration_hours) || 0), 0)
 
   const downloadExcel = async () => {
     if (!projectId || !months || !year) { setError('Select a project and enter months/year.'); return }
