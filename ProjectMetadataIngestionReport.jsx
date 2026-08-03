@@ -428,13 +428,15 @@ export default function ProjectMetadataIngestionReport() {
 
         {loading && (
           <div style={{ textAlign: 'center', padding: 80 }}>
-            <div style={{
-              width: 36, height: 36, margin: '0 auto 16px',
-              border: `3px solid ${C.border}`, borderTopColor: C.pu, borderRadius: '50%',
-              animation: 'pmir-spin 0.8s linear infinite',
-            }} />
+            <div style={{ width: 240, height: 4, margin: '0 auto 16px', background: C.border, borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
+              <div style={{
+                position: 'absolute', top: 0, left: 0, height: '100%', width: '40%',
+                background: C.pu, borderRadius: 4,
+                animation: 'pmir-line-slide 1.2s ease-in-out infinite',
+              }} />
+            </div>
             <div style={{ color: C.muted, fontSize: 13 }}>Loading classification data…</div>
-            <style>{'@keyframes pmir-spin { to { transform: rotate(360deg) } }'}</style>
+            <style>{'@keyframes pmir-line-slide { 0% { left: -40% } 50% { left: 60% } 100% { left: 100% } }'}</style>
           </div>
         )}
 
