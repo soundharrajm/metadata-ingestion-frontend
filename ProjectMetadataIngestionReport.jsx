@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { C, CATEGORIES, CATEGORY_LABELS, CB_STATUSES, STATUS_LABELS, STATUS_COLORS, API_BASE, FETCH_HEADERS } from './constants.js'
-import { buildCrossTab } from './crossTab.js'
+import { buildCrossTab, buildContentTypeCrossTab, buildDateCrossTab, getAvailableDates } from './crossTab.js'
 import Cell from './Cell.jsx'
 import DrillDownModal from './DrillDownModal.jsx'
 import MonthYearPicker from './MonthYearPicker.jsx'
@@ -82,6 +82,21 @@ export default function ProjectMetadataIngestionReport() {
 
   const grid = buildCrossTab(filteredRows)
   const allStatusRows = includeArchivedPurged ? [...CB_STATUSES, 'unknown'] : [...CB_STATUSES.filter(s => s !== 'archived' && s !== 'purged'), 'unknown']
+
+  const contentTypeGrid = buildContentTypeCrossTab(filteredRows, availableContentTypes)
+  const allContentTypeRows = [...availableContentTypes, 'unknown']
+
+  const availableDates = getAvailableDates(filteredRows)
+  const dateGrid = buildDateCrossTab(filteredRows, availableDates)
+  const allDateRows = [...availableDates, 'unknown']
+
+  // Reflects the SAME filteredRows every other metric on this page uses --
+  // consistent with how this app already treats include_archived_purged
+  // (it affects the cross-tab AND export together, not just one), rather
+  // than the original Content Report tool's convention of always showing
+  // totals unfiltered regardless of that toggle.
+  const totalContents = filteredRows.length
+  const totalHours = filteredRows.reduce((sum, r) => sum + (r.duration_hours || 0), 0)
 
   const downloadExcel = async () => {
     if (!projectId || !months || !year) { setError('Select a project and enter months/year.'); return }
@@ -167,7 +182,20 @@ export default function ProjectMetadataIngestionReport() {
         )}
 
         {rows.length > 0 && (
-          <table style={{ width: '100%', background: '#fff', borderCollapse: 'collapse', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+            <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 20px', minWidth: 140 }}>
+              <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }}>Total Contents</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: C.text }}>{totalContents}</div>
+            </div>
+            <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 20px', minWidth: 140 }}>
+              <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }}>Total Hours</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: C.text }}>{totalHours.toFixed(2)}</div>
+            </div>
+          </div>
+        )}
+
+        {rows.length > 0 && (
+          <table style={{ width: '100%', background: '#fff', borderCollapse: 'collapse', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 24 }}>
             <thead>
               <tr>
                 <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
@@ -188,6 +216,64 @@ export default function ProjectMetadataIngestionReport() {
                   </td>
                   {CATEGORIES.map(cat => (
                     <Cell key={cat} items={grid[status][cat]} onClick={setDrillDown} />
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {rows.length > 0 && (
+          <table style={{ width: '100%', background: '#fff', borderCollapse: 'collapse', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 24 }}>
+            <thead>
+              <tr>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
+                  Content Type
+                </th>
+                {CATEGORIES.map(cat => (
+                  <th key={cat} style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
+                    {CATEGORY_LABELS[cat]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {allContentTypeRows.map(ct => (
+                <tr key={ct}>
+                  <td style={{ padding: '10px 12px', fontWeight: 700, fontSize: 13, color: ct === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
+                    {ct === 'unknown' ? 'Unknown / No Content Type' : ct}
+                  </td>
+                  {CATEGORIES.map(cat => (
+                    <Cell key={cat} items={contentTypeGrid[ct][cat]} onClick={setDrillDown} />
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {rows.length > 0 && (
+          <table style={{ width: '100%', background: '#fff', borderCollapse: 'collapse', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <thead>
+              <tr>
+                <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
+                  Date
+                </th>
+                {CATEGORIES.map(cat => (
+                  <th key={cat} style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
+                    {CATEGORY_LABELS[cat]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {allDateRows.map(d => (
+                <tr key={d}>
+                  <td style={{ padding: '10px 12px', fontWeight: 700, fontSize: 13, fontFamily: d === 'unknown' ? 'inherit' : C.mono, color: d === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
+                    {d === 'unknown' ? 'Unknown / No Date' : d}
+                  </td>
+                  {CATEGORIES.map(cat => (
+                    <Cell key={cat} items={dateGrid[d][cat]} onClick={setDrillDown} />
                   ))}
                 </tr>
               ))}
