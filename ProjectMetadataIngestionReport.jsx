@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { C, CATEGORIES, CATEGORY_LABELS, CB_STATUSES, STATUS_LABELS, STATUS_COLORS, API_BASE, FETCH_HEADERS } from './constants.js'
-import { buildCombinedCrossTab, buildDateCrossTab, getAvailableDates } from './crossTab.js'
+import { buildCombinedCrossTab, buildDateStatusCrossTab, getAvailableDates } from './crossTab.js'
 import Cell from './Cell.jsx'
 import DrillDownModal from './DrillDownModal.jsx'
 import MonthYearPicker from './MonthYearPicker.jsx'
@@ -21,6 +21,7 @@ export default function ProjectMetadataIngestionReport() {
   const [includeDvb, setIncludeDvb] = useState(true)
   const [includeArchivedPurged, setIncludeArchivedPurged] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [activeTab, setActiveTab] = useState('main')
 
   useEffect(() => {
     fetch(`${API_BASE}/projects`, { headers: FETCH_HEADERS }).then(r => r.json()).then(setProjects).catch(e => setError(e.message))
@@ -100,7 +101,7 @@ export default function ProjectMetadataIngestionReport() {
   const subStatusRows = includeArchivedPurged ? [...CB_STATUSES, 'unknown'] : [...CB_STATUSES.filter(s => s !== 'archived' && s !== 'purged'), 'unknown']
 
   const availableDates = getAvailableDates(filteredRows)
-  const dateGrid = buildDateCrossTab(filteredRows, availableDates)
+  const dateGrid = buildDateStatusCrossTab(filteredRows, availableDates)
   const allDateRows = [...availableDates, 'unknown']
 
   // Reflects the SAME filteredRows every other metric on this page uses --
@@ -198,6 +199,25 @@ export default function ProjectMetadataIngestionReport() {
         </button>
       </header>
 
+      {rows.length > 0 && (
+        <div style={{ display: 'flex', gap: 4, padding: '12px 24px 0', background: '#fff', borderBottom: `1px solid ${C.border}` }}>
+          {[{ id: 'main', label: 'Main' }, { id: 'dateWise', label: 'Date Wise' }].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600,
+                color: activeTab === tab.id ? C.pu : C.muted,
+                borderBottom: activeTab === tab.id ? `2px solid ${C.pu}` : '2px solid transparent',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <main style={{ padding: 24 }}>
         {error && (
           <div style={{ color: C.red, background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
@@ -205,7 +225,7 @@ export default function ProjectMetadataIngestionReport() {
           </div>
         )}
 
-        {rows.length > 0 && (
+        {activeTab === 'main' && rows.length > 0 && (
           <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
             <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 20px', minWidth: 140 }}>
               <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }}>Total Contents</div>
@@ -218,7 +238,7 @@ export default function ProjectMetadataIngestionReport() {
           </div>
         )}
 
-        {rows.length > 0 && (
+        {activeTab === 'main' && rows.length > 0 && (
           <table style={{ width: '100%', background: '#fff', borderCollapse: 'collapse', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 24 }}>
             <thead>
               <tr>
@@ -256,12 +276,12 @@ export default function ProjectMetadataIngestionReport() {
           </table>
         )}
 
-        {rows.length > 0 && (
+        {activeTab === 'dateWise' && rows.length > 0 && (
           <table style={{ width: '100%', background: '#fff', borderCollapse: 'collapse', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             <thead>
               <tr>
                 <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
-                  Date
+                  Date / CB Status
                 </th>
                 {CATEGORIES.map(cat => (
                   <th key={cat} style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
@@ -272,14 +292,23 @@ export default function ProjectMetadataIngestionReport() {
             </thead>
             <tbody>
               {allDateRows.map(d => (
-                <tr key={d}>
-                  <td style={{ padding: '10px 12px', fontWeight: 700, fontSize: 13, fontFamily: d === 'unknown' ? 'inherit' : C.mono, color: d === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
-                    {d === 'unknown' ? 'Unknown / No Date' : d}
-                  </td>
-                  {CATEGORIES.map(cat => (
-                    <Cell key={cat} items={dateGrid[d][cat]} onClick={setDrillDown} />
+                <React.Fragment key={d}>
+                  <tr style={{ background: '#f8f8fc' }}>
+                    <td colSpan={1 + CATEGORIES.length} style={{ padding: '8px 12px', fontWeight: 700, fontSize: 13, fontFamily: d === 'unknown' ? 'inherit' : C.mono, color: d === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
+                      {d === 'unknown' ? 'Unknown / No Date' : d}
+                    </td>
+                  </tr>
+                  {subStatusRows.map(status => (
+                    <tr key={`${d}-${status}`}>
+                      <td style={{ padding: '8px 12px 8px 28px', fontWeight: 600, fontSize: 12, color: STATUS_COLORS[status], borderBottom: `1px solid ${C.border}` }}>
+                        {STATUS_LABELS[status]}
+                      </td>
+                      {CATEGORIES.map(cat => (
+                        <Cell key={cat} items={dateGrid[d][status][cat]} onClick={setDrillDown} />
+                      ))}
+                    </tr>
                   ))}
-                </tr>
+                </React.Fragment>
               ))}
             </tbody>
           </table>

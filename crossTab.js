@@ -86,3 +86,21 @@ export function buildCombinedCrossTab(rows, contentTypes) {
   })
   return nested
 }
+
+// Same nested pattern again, but date is the outer grouping instead of
+// content_type -- each date as a group header, with the same 5 cb_status
+// sub-rows underneath. Returns
+// { [date]: { [cbStatus]: { [category]: [...matchingRows] } } }.
+export function buildDateStatusCrossTab(rows, dates) {
+  const allDates = [...dates, 'unknown']
+  const allStatuses = [...CB_STATUSES, 'unknown']
+  const nested = {}
+  allDates.forEach(d => {
+    nested[d] = buildCrossTabGeneric(
+      rows.filter(r => (dateOnly(r.current_key_updated_date) || 'unknown') === d),
+      r => CB_STATUSES.includes(r.cb_status) ? r.cb_status : 'unknown',
+      allStatuses
+    )
+  })
+  return nested
+}
