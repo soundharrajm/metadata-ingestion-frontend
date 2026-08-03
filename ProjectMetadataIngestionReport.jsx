@@ -48,13 +48,8 @@ export default function ProjectMetadataIngestionReport() {
     if (!projectId || !months || !year) return
     setDvbStatus('loading')
     try {
-      const monthList = months.split(',').map(m => parseInt(m.trim())).filter(Boolean)
-      const firstMonth = Math.min(...monthList)
-      const lastMonth = Math.max(...monthList)
-      const startDate = `${year}-${String(firstMonth).padStart(2, '0')}-01 00:00:00`
-      const endMonth = lastMonth + 1
-      const endDate = endMonth > 12 ? `${year + 1}-01-01 00:00:00` : `${year}-${String(endMonth).padStart(2, '0')}-01 00:00:00`
-      const res = await fetch(`${API_BASE}/dvb/fetch?project_id=${projectId}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`, { headers: FETCH_HEADERS })
+      const params = `project_id=${encodeURIComponent(projectId)}&months=${encodeURIComponent(months)}&year=${encodeURIComponent(year)}`
+      const res = await fetch(`${API_BASE}/dvb/fetch?${params}`, { headers: FETCH_HEADERS })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'DVB fetch failed')
       setDvbRows(data.rows || [])
