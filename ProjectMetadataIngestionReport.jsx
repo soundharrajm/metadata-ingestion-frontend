@@ -118,6 +118,15 @@ export default function ProjectMetadataIngestionReport() {
   const dvbTotalContent = dvbRows.length
   const dvbTotalHours = dvbRows.reduce((sum, r) => sum + (Number(r.duration_hours) || 0), 0)
 
+  // Sums duration_hours across ALL 5 category cells for one status group
+  // (e.g. combinedGrid.movie.published or dateGrid['2026-08-01'].published)
+  // -- each grid cell only holds rows for one specific category, so this
+  // flattens across all of them to get that status row's total duration.
+  const sumDuration = (statusGroup) => CATEGORIES.reduce(
+    (sum, cat) => sum + statusGroup[cat].reduce((s, r) => s + (Number(r.duration_hours) || 0), 0),
+    0
+  )
+
   const downloadExcel = async () => {
     if (!projectId || !months || !year) { setError('Select a project and enter months/year.'); return }
     setError(null); setExporting(true)
@@ -250,13 +259,16 @@ export default function ProjectMetadataIngestionReport() {
                     {CATEGORY_LABELS[cat]}
                   </th>
                 ))}
+                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
+                  Duration (hrs)
+                </th>
               </tr>
             </thead>
             <tbody>
               {allContentTypeRows.map(ct => (
                 <React.Fragment key={ct}>
                   <tr key={`${ct}-header`} style={{ background: '#f8f8fc' }}>
-                    <td colSpan={1 + CATEGORIES.length} style={{ padding: '8px 12px', fontWeight: 700, fontSize: 13, color: ct === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
+                    <td colSpan={2 + CATEGORIES.length} style={{ padding: '8px 12px', fontWeight: 700, fontSize: 13, color: ct === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
                       {ct === 'unknown' ? 'Unknown / No Content Type' : ct}
                     </td>
                   </tr>
@@ -268,6 +280,9 @@ export default function ProjectMetadataIngestionReport() {
                       {CATEGORIES.map(cat => (
                         <Cell key={cat} items={combinedGrid[ct][status][cat]} onClick={setDrillDown} />
                       ))}
+                      <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                        {sumDuration(combinedGrid[ct][status]).toFixed(2)}
+                      </td>
                     </tr>
                   ))}
                 </React.Fragment>
@@ -288,13 +303,16 @@ export default function ProjectMetadataIngestionReport() {
                     {CATEGORY_LABELS[cat]}
                   </th>
                 ))}
+                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
+                  Duration (hrs)
+                </th>
               </tr>
             </thead>
             <tbody>
               {allDateRows.map(d => (
                 <React.Fragment key={d}>
                   <tr style={{ background: '#f8f8fc' }}>
-                    <td colSpan={1 + CATEGORIES.length} style={{ padding: '8px 12px', fontWeight: 700, fontSize: 13, fontFamily: d === 'unknown' ? 'inherit' : C.mono, color: d === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
+                    <td colSpan={2 + CATEGORIES.length} style={{ padding: '8px 12px', fontWeight: 700, fontSize: 13, fontFamily: d === 'unknown' ? 'inherit' : C.mono, color: d === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
                       {d === 'unknown' ? 'Unknown / No Date' : d}
                     </td>
                   </tr>
@@ -306,6 +324,9 @@ export default function ProjectMetadataIngestionReport() {
                       {CATEGORIES.map(cat => (
                         <Cell key={cat} items={dateGrid[d][status][cat]} onClick={setDrillDown} />
                       ))}
+                      <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                        {sumDuration(dateGrid[d][status]).toFixed(2)}
+                      </td>
                     </tr>
                   ))}
                 </React.Fragment>
