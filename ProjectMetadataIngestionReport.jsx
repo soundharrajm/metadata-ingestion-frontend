@@ -22,6 +22,16 @@ export default function ProjectMetadataIngestionReport() {
   const [includeArchivedPurged, setIncludeArchivedPurged] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [activeTab, setActiveTab] = useState('main')
+  const [expandedGroups, setExpandedGroups] = useState(new Set())
+
+  const toggleGroup = (key) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   useEffect(() => {
     fetch(`${API_BASE}/projects`, { headers: FETCH_HEADERS }).then(r => r.json()).then(setProjects).catch(e => setError(e.message))
@@ -126,6 +136,19 @@ export default function ProjectMetadataIngestionReport() {
     (sum, cat) => sum + statusGroup[cat].reduce((s, r) => s + (Number(r.duration_hours) || 0), 0),
     0
   )
+
+  // Totals across ALL statuses for one group (e.g. combinedGrid.movie or
+  // dateGrid['2026-08-01']) -- used for the collapsed group-header row,
+  // which shows the combined Published+Draft+Archived+Purged+Unknown
+  // totals per category instead of the per-status breakdown underneath.
+  const sumGroupTotals = (group) => {
+    const perCategory = {}
+    CATEGORIES.forEach(cat => {
+      perCategory[cat] = Object.values(group).reduce((sum, statusGroup) => sum + statusGroup[cat].length, 0)
+    })
+    const duration = Object.values(group).reduce((sum, statusGroup) => sum + sumDuration(statusGroup), 0)
+    return { perCategory, duration }
+  }
 
   const downloadExcel = async () => {
     if (!projectId || !months || !year) { setError('Select a project and enter months/year.'); return }
@@ -299,28 +322,45 @@ export default function ProjectMetadataIngestionReport() {
               </tr>
             </thead>
             <tbody>
-              {allContentTypeRows.map(ct => (
-                <React.Fragment key={ct}>
-                  <tr key={`${ct}-header`} style={{ background: '#f8f8fc' }}>
-                    <td colSpan={2 + CATEGORIES.length} style={{ padding: '8px 12px', fontWeight: 700, fontSize: 13, color: ct === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
-                      {ct === 'unknown' ? 'Unknown / No Content Type' : ct}
-                    </td>
-                  </tr>
-                  {subStatusRows.map(status => (
-                    <tr key={`${ct}-${status}`}>
-                      <td style={{ padding: '8px 12px 8px 28px', fontWeight: 600, fontSize: 12, color: STATUS_COLORS[status], borderBottom: `1px solid ${C.border}` }}>
-                        {STATUS_LABELS[status]}
+              {allContentTypeRows.map(ct => {
+                const groupKey = `ct-${ct}`
+                const isExpanded = expandedGroups.has(groupKey)
+                const totals = sumGroupTotals(combinedGrid[ct])
+                return (
+                  <React.Fragment key={ct}>
+                    <tr key={`${ct}-header`} style={{ background: '#f8f8fc', cursor: 'pointer' }} onClick={() => toggleGroup(groupKey)}>
+                      <td style={{ padding: '8px 12px', fontWeight: 700, fontSize: 13, color: ct === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
+                        <span style={{ display: 'inline-block', width: 14, color: C.muted }}>{isExpanded ? '▾' : '▸'}</span>
+                        {ct === 'unknown' ? 'Unknown / No Content Type' : ct}
                       </td>
-                      {CATEGORIES.map(cat => (
-                        <Cell key={cat} items={combinedGrid[ct][status][cat]} onClick={setDrillDown} />
+                      {!isExpanded && CATEGORIES.map(cat => (
+                        <td key={cat} style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: totals.perCategory[cat] > 0 ? C.text : '#cbd5e1', borderBottom: `1px solid ${C.border}` }}>
+                          {totals.perCategory[cat] > 0 ? totals.perCategory[cat] : '—'}
+                        </td>
                       ))}
-                      <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}` }}>
-                        {sumDuration(combinedGrid[ct][status]).toFixed(2)}
-                      </td>
+                      {!isExpanded && (
+                        <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                          {totals.duration.toFixed(2)}
+                        </td>
+                      )}
+                      {isExpanded && <td colSpan={1 + CATEGORIES.length} style={{ borderBottom: `1px solid ${C.border}` }} />}
                     </tr>
-                  ))}
-                </React.Fragment>
-              ))}
+                    {isExpanded && subStatusRows.map(status => (
+                      <tr key={`${ct}-${status}`}>
+                        <td style={{ padding: '8px 12px 8px 28px', fontWeight: 600, fontSize: 12, color: STATUS_COLORS[status], borderBottom: `1px solid ${C.border}` }}>
+                          {STATUS_LABELS[status]}
+                        </td>
+                        {CATEGORIES.map(cat => (
+                          <Cell key={cat} items={combinedGrid[ct][status][cat]} onClick={setDrillDown} />
+                        ))}
+                        <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                          {sumDuration(combinedGrid[ct][status]).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                )
+              })}
             </tbody>
           </table>
         )}
@@ -343,28 +383,45 @@ export default function ProjectMetadataIngestionReport() {
               </tr>
             </thead>
             <tbody>
-              {allDateRows.map(d => (
-                <React.Fragment key={d}>
-                  <tr style={{ background: '#f8f8fc' }}>
-                    <td colSpan={2 + CATEGORIES.length} style={{ padding: '8px 12px', fontWeight: 700, fontSize: 13, fontFamily: d === 'unknown' ? 'inherit' : C.mono, color: d === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
-                      {d === 'unknown' ? 'Unknown / No Date' : d}
-                    </td>
-                  </tr>
-                  {subStatusRows.map(status => (
-                    <tr key={`${d}-${status}`}>
-                      <td style={{ padding: '8px 12px 8px 28px', fontWeight: 600, fontSize: 12, color: STATUS_COLORS[status], borderBottom: `1px solid ${C.border}` }}>
-                        {STATUS_LABELS[status]}
+              {allDateRows.map(d => {
+                const groupKey = `date-${d}`
+                const isExpanded = expandedGroups.has(groupKey)
+                const totals = sumGroupTotals(dateGrid[d])
+                return (
+                  <React.Fragment key={d}>
+                    <tr style={{ background: '#f8f8fc', cursor: 'pointer' }} onClick={() => toggleGroup(groupKey)}>
+                      <td style={{ padding: '8px 12px', fontWeight: 700, fontSize: 13, fontFamily: d === 'unknown' ? 'inherit' : C.mono, color: d === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
+                        <span style={{ display: 'inline-block', width: 14, color: C.muted, fontFamily: 'inherit' }}>{isExpanded ? '▾' : '▸'}</span>
+                        {d === 'unknown' ? 'Unknown / No Date' : d}
                       </td>
-                      {CATEGORIES.map(cat => (
-                        <Cell key={cat} items={dateGrid[d][status][cat]} onClick={setDrillDown} />
+                      {!isExpanded && CATEGORIES.map(cat => (
+                        <td key={cat} style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: totals.perCategory[cat] > 0 ? C.text : '#cbd5e1', borderBottom: `1px solid ${C.border}` }}>
+                          {totals.perCategory[cat] > 0 ? totals.perCategory[cat] : '—'}
+                        </td>
                       ))}
-                      <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}` }}>
-                        {sumDuration(dateGrid[d][status]).toFixed(2)}
-                      </td>
+                      {!isExpanded && (
+                        <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                          {totals.duration.toFixed(2)}
+                        </td>
+                      )}
+                      {isExpanded && <td colSpan={1 + CATEGORIES.length} style={{ borderBottom: `1px solid ${C.border}` }} />}
                     </tr>
-                  ))}
-                </React.Fragment>
-              ))}
+                    {isExpanded && subStatusRows.map(status => (
+                      <tr key={`${d}-${status}`}>
+                        <td style={{ padding: '8px 12px 8px 28px', fontWeight: 600, fontSize: 12, color: STATUS_COLORS[status], borderBottom: `1px solid ${C.border}` }}>
+                          {STATUS_LABELS[status]}
+                        </td>
+                        {CATEGORIES.map(cat => (
+                          <Cell key={cat} items={dateGrid[d][status][cat]} onClick={setDrillDown} />
+                        ))}
+                        <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                          {sumDuration(dateGrid[d][status]).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                )
+              })}
             </tbody>
           </table>
         )}
