@@ -34,7 +34,20 @@ export default function ProjectMetadataIngestionReport() {
   }
 
   useEffect(() => {
-    fetch(`${API_BASE}/projects`, { headers: FETCH_HEADERS }).then(r => r.json()).then(setProjects).catch(e => setError(e.message))
+    fetch(`${API_BASE}/projects`, { headers: FETCH_HEADERS })
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setProjects(data)
+        } else {
+          // Most likely an error object (e.g. {error: "..."}) or some
+          // other unexpected shape -- storing it as-is would silently
+          // break every later projects.find() call with an opaque
+          // "X.find is not a function" instead of a real error message.
+          setError(data?.error || 'Failed to load projects: unexpected response from server.')
+        }
+      })
+      .catch(e => setError(e.message))
   }, [])
 
   const selectedProject = projects.find(p => p.id === projectId)
