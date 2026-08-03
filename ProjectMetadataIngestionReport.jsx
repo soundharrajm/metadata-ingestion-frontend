@@ -235,7 +235,7 @@ export default function ProjectMetadataIngestionReport() {
         )}
 
         {activeTab === 'main' && rows.length > 0 && (
-          <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: dvbRows.length > 0 ? 12 : 20 }}>
             <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 20px', minWidth: 140 }}>
               <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }}>Total Contents</div>
               <div style={{ fontSize: 24, fontWeight: 700, color: C.text }}>{totalContents}</div>
@@ -243,6 +243,19 @@ export default function ProjectMetadataIngestionReport() {
             <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 20px', minWidth: 140 }}>
               <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }}>Total Hours</div>
               <div style={{ fontSize: 24, fontWeight: 700, color: C.text }}>{totalHours.toFixed(2)}</div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'main' && dvbRows.length > 0 && (
+          <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+            <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 20px', minWidth: 140 }}>
+              <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }}>DVB Total Content</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: C.text }}>{dvbTotalContent}</div>
+            </div>
+            <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 20px', minWidth: 140 }}>
+              <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }}>DVB Total Hours</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: C.text }}>{dvbTotalHours.toFixed(2)}</div>
             </div>
           </div>
         )}
