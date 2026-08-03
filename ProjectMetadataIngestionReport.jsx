@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { C, CATEGORIES, CATEGORY_LABELS, CB_STATUSES, STATUS_LABELS, STATUS_COLORS, API_BASE, FETCH_HEADERS } from './constants.js'
-import { buildCrossTab, buildContentTypeCrossTab, buildDateCrossTab, getAvailableDates } from './crossTab.js'
+import { buildCombinedCrossTab, buildDateCrossTab, getAvailableDates } from './crossTab.js'
 import Cell from './Cell.jsx'
 import DrillDownModal from './DrillDownModal.jsx'
 import MonthYearPicker from './MonthYearPicker.jsx'
@@ -37,6 +37,14 @@ export default function ProjectMetadataIngestionReport() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to fetch classification')
       setRows(data.rows || [])
+      // If "Include DVB" is checked and this project actually has DVB,
+      // pull DVB data automatically as part of the same Fetch click --
+      // previously the checkbox only affected the Excel export, silently
+      // doing nothing for the live view unless "Fetch DVB" was ALSO
+      // clicked separately, which wasn't obvious from the checkbox alone.
+      if (includeDvb && selectedProject?.has_dvb) {
+        await fetchDvb()
+      }
     } catch (e) {
       setError(e.message)
     } finally {
@@ -78,11 +86,10 @@ export default function ProjectMetadataIngestionReport() {
     return true
   })
 
-  const grid = buildCrossTab(filteredRows)
-  const allStatusRows = includeArchivedPurged ? [...CB_STATUSES, 'unknown'] : [...CB_STATUSES.filter(s => s !== 'archived' && s !== 'purged'), 'unknown']
 
-  const contentTypeGrid = buildContentTypeCrossTab(filteredRows, availableContentTypes)
+  const combinedGrid = buildCombinedCrossTab(filteredRows, availableContentTypes)
   const allContentTypeRows = [...availableContentTypes, 'unknown']
+  const subStatusRows = includeArchivedPurged ? [...CB_STATUSES, 'unknown'] : [...CB_STATUSES.filter(s => s !== 'archived' && s !== 'purged'), 'unknown']
 
   const availableDates = getAvailableDates(filteredRows)
   const dateGrid = buildDateCrossTab(filteredRows, availableDates)
@@ -208,36 +215,7 @@ export default function ProjectMetadataIngestionReport() {
             <thead>
               <tr>
                 <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
-                  CB Status
-                </th>
-                {CATEGORIES.map(cat => (
-                  <th key={cat} style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
-                    {CATEGORY_LABELS[cat]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {allStatusRows.map(status => (
-                <tr key={status}>
-                  <td style={{ padding: '10px 12px', fontWeight: 700, fontSize: 13, color: STATUS_COLORS[status], borderBottom: `1px solid ${C.border}` }}>
-                    {STATUS_LABELS[status]}
-                  </td>
-                  {CATEGORIES.map(cat => (
-                    <Cell key={cat} items={grid[status][cat]} onClick={setDrillDown} />
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {rows.length > 0 && (
-          <table style={{ width: '100%', background: '#fff', borderCollapse: 'collapse', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 24 }}>
-            <thead>
-              <tr>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
-                  Content Type
+                  Content Type / CB Status
                 </th>
                 {CATEGORIES.map(cat => (
                   <th key={cat} style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
@@ -248,14 +226,23 @@ export default function ProjectMetadataIngestionReport() {
             </thead>
             <tbody>
               {allContentTypeRows.map(ct => (
-                <tr key={ct}>
-                  <td style={{ padding: '10px 12px', fontWeight: 700, fontSize: 13, color: ct === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
-                    {ct === 'unknown' ? 'Unknown / No Content Type' : ct}
-                  </td>
-                  {CATEGORIES.map(cat => (
-                    <Cell key={cat} items={contentTypeGrid[ct][cat]} onClick={setDrillDown} />
+                <React.Fragment key={ct}>
+                  <tr key={`${ct}-header`} style={{ background: '#f8f8fc' }}>
+                    <td colSpan={1 + CATEGORIES.length} style={{ padding: '8px 12px', fontWeight: 700, fontSize: 13, color: ct === 'unknown' ? C.muted : C.text, borderBottom: `1px solid ${C.border}` }}>
+                      {ct === 'unknown' ? 'Unknown / No Content Type' : ct}
+                    </td>
+                  </tr>
+                  {subStatusRows.map(status => (
+                    <tr key={`${ct}-${status}`}>
+                      <td style={{ padding: '8px 12px 8px 28px', fontWeight: 600, fontSize: 12, color: STATUS_COLORS[status], borderBottom: `1px solid ${C.border}` }}>
+                        {STATUS_LABELS[status]}
+                      </td>
+                      {CATEGORIES.map(cat => (
+                        <Cell key={cat} items={combinedGrid[ct][status][cat]} onClick={setDrillDown} />
+                      ))}
+                    </tr>
                   ))}
-                </tr>
+                </React.Fragment>
               ))}
             </tbody>
           </table>

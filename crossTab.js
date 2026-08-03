@@ -66,3 +66,23 @@ export function buildDateCrossTab(rows, dates) {
     [...dates, 'unknown']
   )
 }
+
+// Nested version combining content_type and cb_status into ONE table
+// instead of two separate ones -- content_type is the outer grouping,
+// with each of the 5 cb_status values as sub-rows underneath it (e.g.
+// "movie" as a group header, then Published/Draft/Archived/Purged/Unknown
+// indented below, each with their own category counts). Returns
+// { [contentType]: { [cbStatus]: { [category]: [...matchingRows] } } }.
+export function buildCombinedCrossTab(rows, contentTypes) {
+  const allContentTypes = [...contentTypes, 'unknown']
+  const allStatuses = [...CB_STATUSES, 'unknown']
+  const nested = {}
+  allContentTypes.forEach(ct => {
+    nested[ct] = buildCrossTabGeneric(
+      rows.filter(r => (r.content_type || 'unknown') === ct),
+      r => CB_STATUSES.includes(r.cb_status) ? r.cb_status : 'unknown',
+      allStatuses
+    )
+  })
+  return nested
+}
