@@ -140,7 +140,7 @@ export default function ProjectMetadataIngestionReport() {
 
   const combinedGrid = buildCombinedCrossTab(filteredRows, availableContentTypes)
   const allContentTypeRows = [...availableContentTypes, 'unknown']
-  const subStatusRows = includeArchivedPurged ? [...CB_STATUSES, 'unknown'] : [...CB_STATUSES.filter(s => s !== 'archived' && s !== 'purged'), 'unknown']
+  const subStatusRows = includeArchivedPurged ? CB_STATUSES : CB_STATUSES.filter(s => s !== 'archived' && s !== 'purged')
 
   const availableDates = getAvailableDates(filteredRows)
   const dateGrid = buildDateStatusCrossTab(filteredRows, availableDates)

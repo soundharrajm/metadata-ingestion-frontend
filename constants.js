@@ -13,10 +13,9 @@ export const C = {
   muted: '#64748b',
 }
 
-export const CATEGORIES = ['newly_ingested', 'source_update', 'video_update', 'audio_update', 'image_update', 'subtitle_update', 'metadata_update']
+export const CATEGORIES = ['newly_ingested', 'video_update', 'audio_update', 'image_update', 'subtitle_update', 'metadata_update']
 export const CATEGORY_LABELS = {
   newly_ingested: 'Newly Ingested',
-  source_update: 'Source Update',
   video_update: 'Video Update',
   audio_update: 'Audio Update',
   image_update: 'Image Update',
@@ -24,8 +23,8 @@ export const CATEGORY_LABELS = {
   metadata_update: 'Metadata Update',
 }
 export const CB_STATUSES = ['published', 'draft', 'archived', 'purged']
-export const STATUS_LABELS = { published: 'Published', draft: 'Draft', archived: 'Archived', purged: 'Purged', unknown: 'Unknown / No CB Match' }
-export const STATUS_COLORS = { published: C.green, draft: C.blue, archived: C.amber, purged: C.red, unknown: C.muted }
+export const STATUS_LABELS = { published: 'Published', draft: 'Draft', archived: 'Archived', purged: 'Purged' }
+export const STATUS_COLORS = { published: C.green, draft: C.blue, archived: C.amber, purged: C.red }
 
 // Backend URL, resolved in priority order:
 //   1. VITE_API_URL, if set (e.g. in .env.local) -- the explicit override,

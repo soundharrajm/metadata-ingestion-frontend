@@ -75,13 +75,12 @@ export function buildDateCrossTab(rows, dates) {
 // { [contentType]: { [cbStatus]: { [category]: [...matchingRows] } } }.
 export function buildCombinedCrossTab(rows, contentTypes) {
   const allContentTypes = [...contentTypes, 'unknown']
-  const allStatuses = [...CB_STATUSES, 'unknown']
   const nested = {}
   allContentTypes.forEach(ct => {
     nested[ct] = buildCrossTabGeneric(
       rows.filter(r => (r.content_type || 'unknown') === ct),
       r => CB_STATUSES.includes(r.cb_status) ? r.cb_status : 'unknown',
-      allStatuses
+      CB_STATUSES
     )
   })
   return nested
@@ -93,13 +92,12 @@ export function buildCombinedCrossTab(rows, contentTypes) {
 // { [date]: { [cbStatus]: { [category]: [...matchingRows] } } }.
 export function buildDateStatusCrossTab(rows, dates) {
   const allDates = [...dates, 'unknown']
-  const allStatuses = [...CB_STATUSES, 'unknown']
   const nested = {}
   allDates.forEach(d => {
     nested[d] = buildCrossTabGeneric(
       rows.filter(r => (dateOnly(r.current_key_updated_date) || 'unknown') === d),
       r => CB_STATUSES.includes(r.cb_status) ? r.cb_status : 'unknown',
-      allStatuses
+      CB_STATUSES
     )
   })
   return nested
