@@ -23,6 +23,7 @@ export default function ProjectMetadataIngestionReport() {
   const [exporting, setExporting] = useState(false)
   const [activeTab, setActiveTab] = useState('main')
   const [expandedGroups, setExpandedGroups] = useState(new Set())
+  const [contentListSearch, setContentListSearch] = useState('')
 
   const toggleGroup = (key) => {
     setExpandedGroups(prev => {
@@ -300,7 +301,7 @@ export default function ProjectMetadataIngestionReport() {
 
       {rows.length > 0 && (
         <div style={{ display: 'flex', gap: 4, padding: '12px 24px 0', background: '#fff', borderBottom: `1px solid ${C.border}` }}>
-          {[{ id: 'main', label: 'Main' }, { id: 'dateWise', label: 'Date Wise' }].map(tab => (
+          {[{ id: 'main', label: 'Main' }, { id: 'dateWise', label: 'Date Wise' }, { id: 'contentList', label: 'Content List' }].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -493,6 +494,67 @@ export default function ProjectMetadataIngestionReport() {
             </tbody>
           </table>
         )}
+
+        {activeTab === 'contentList' && rows.length > 0 && (() => {
+          const contentColumns = [
+            ['content_id', 'Content ID'], ['current_key', 'Current Key'],
+            ['content_title', 'Content Title'], ['content_type', 'Content Type'],
+            ['is_l2v', 'L2V'], ['duration_hours', 'Duration (hrs)'],
+            ['ingestion_category', 'Ingestion Category'],
+            ['mysql_status', 'MySQL Status'], ['cb_status', 'CB Status'],
+            ['restoration_status', 'Restoration Status'], ['external_id', 'External ID'],
+            ['current_key_updated_date', 'Current Updated'],
+            ['previous_key', 'Previous Key'], ['previous_key_updated_date', 'Previous Updated'],
+            ['media_updated_date', 'Video/Audio/Caption/Image Created Date'],
+          ]
+          const searchLower = contentListSearch.trim().toLowerCase()
+          const searchedRows = searchLower
+            ? filteredRows.filter(r =>
+                ['content_id', 'current_key', 'content_title', 'external_id', 'ingestion_category', 'cb_status']
+                  .some(field => String(r[field] ?? '').toLowerCase().includes(searchLower))
+              )
+            : filteredRows
+
+          return (
+            <div>
+              <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  value={contentListSearch}
+                  onChange={e => setContentListSearch(e.target.value)}
+                  placeholder="Filter by Content ID, Key, Title, External ID, Category, CB Status…"
+                  style={{ padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', width: 380 }}
+                />
+                <span style={{ fontSize: 12, color: C.muted }}>{searchedRows.length} of {filteredRows.length} rows</span>
+              </div>
+              <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      {contentColumns.map(([key, label]) => (
+                        <th key={key} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8', whiteSpace: 'nowrap' }}>
+                          {label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {searchedRows.map((r, i) => (
+                      <tr key={i}>
+                        {contentColumns.map(([key]) => (
+                          <td key={key} style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap', color: r[key] == null ? '#cbd5e1' : C.text }}>
+                            {key === 'is_l2v' ? (r[key] ? '✓' : '—')
+                              : key === 'duration_hours' ? (r[key] != null ? Number(r[key]).toFixed(2) : '—')
+                              : (r[key] ?? '—')}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        })()}
 
         {loading && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 200px)', textAlign: 'center' }}>
