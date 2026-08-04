@@ -496,17 +496,17 @@ export default function ProjectMetadataIngestionReport() {
 
         {loading && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 200px)', textAlign: 'center' }}>
-            <div style={{ width: 240, height: 4, marginBottom: 16, background: C.border, borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
+            <div style={{ width: 360, height: 7, marginBottom: 20, background: C.border, borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
               <div style={{
                 position: 'absolute', top: 0, left: 0, height: '100%', width: '40%',
                 background: 'linear-gradient(90deg, #7c6af7, #2563eb, #16a34a, #d97706, #dc2626, #7c6af7)',
                 backgroundSize: '300% 100%',
-                borderRadius: 4,
+                borderRadius: 6,
                 animation: 'pmir-line-slide 1.2s ease-in-out infinite, pmir-hue-shift 2s linear infinite',
               }} />
             </div>
             <div style={{
-              fontSize: 13, fontWeight: 600,
+              fontSize: 22, fontWeight: 700,
               background: 'linear-gradient(90deg, #7c6af7, #2563eb, #16a34a, #d97706, #dc2626, #7c6af7)',
               backgroundSize: '300% 100%',
               WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
