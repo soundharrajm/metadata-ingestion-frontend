@@ -13,10 +13,12 @@ export const C = {
   muted: '#64748b',
 }
 
-export const CATEGORIES = ['newly_ingested', 'source_update', 'image_update', 'subtitle_update', 'metadata_update']
+export const CATEGORIES = ['newly_ingested', 'source_update', 'video_update', 'audio_update', 'image_update', 'subtitle_update', 'metadata_update']
 export const CATEGORY_LABELS = {
   newly_ingested: 'Newly Ingested',
   source_update: 'Source Update',
+  video_update: 'Video Update',
+  audio_update: 'Audio Update',
   image_update: 'Image Update',
   subtitle_update: 'Subtitle Update',
   metadata_update: 'Metadata Update',
