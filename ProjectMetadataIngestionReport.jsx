@@ -23,7 +23,8 @@ export default function ProjectMetadataIngestionReport() {
   const [exporting, setExporting] = useState(false)
   const [activeTab, setActiveTab] = useState('main')
   const [expandedGroups, setExpandedGroups] = useState(new Set())
-  const [contentListSearch, setContentListSearch] = useState('')
+  const [contentListFilterCol, setContentListFilterCol] = useState('content_id')
+  const [contentListFilterVal, setContentListFilterVal] = useState('')
 
   const toggleGroup = (key) => {
     setExpandedGroups(prev => {
@@ -502,27 +503,35 @@ export default function ProjectMetadataIngestionReport() {
             ['is_l2v', 'L2V'], ['duration_hours', 'Duration (hrs)'],
             ['ingestion_category', 'Ingestion Category'],
             ['mysql_status', 'MySQL Status'], ['cb_status', 'CB Status'],
-            ['restoration_status', 'Restoration Status'], ['external_id', 'External ID'],
+            ['restoration_status', 'Restoration Status'], ['restoration_file_type', 'Restoration File Type'],
+            ['external_id', 'External ID'],
+            ['source_file_name', 'File Name'],
             ['current_key_updated_date', 'Current Updated'],
             ['previous_key', 'Previous Key'], ['previous_key_updated_date', 'Previous Updated'],
             ['media_updated_date', 'Video/Audio/Caption/Image Created Date'],
           ]
-          const searchLower = contentListSearch.trim().toLowerCase()
-          const searchedRows = searchLower
-            ? filteredRows.filter(r =>
-                ['content_id', 'current_key', 'content_title', 'external_id', 'ingestion_category', 'cb_status']
-                  .some(field => String(r[field] ?? '').toLowerCase().includes(searchLower))
-              )
+          const filterValLower = contentListFilterVal.trim().toLowerCase()
+          const searchedRows = filterValLower
+            ? filteredRows.filter(r => String(r[contentListFilterCol] ?? '').toLowerCase().includes(filterValLower))
             : filteredRows
 
           return (
             <div>
               <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <select
+                  value={contentListFilterCol}
+                  onChange={e => setContentListFilterCol(e.target.value)}
+                  style={{ padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit' }}
+                >
+                  {contentColumns.map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
                 <input
-                  value={contentListSearch}
-                  onChange={e => setContentListSearch(e.target.value)}
-                  placeholder="Filter by Content ID, Key, Title, External ID, Category, CB Status…"
-                  style={{ padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', width: 380 }}
+                  value={contentListFilterVal}
+                  onChange={e => setContentListFilterVal(e.target.value)}
+                  placeholder={`Filter value for ${contentColumns.find(([k]) => k === contentListFilterCol)?.[1] || ''}…`}
+                  style={{ padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', width: 300 }}
                 />
                 <span style={{ fontSize: 12, color: C.muted }}>{searchedRows.length} of {filteredRows.length} rows</span>
               </div>
