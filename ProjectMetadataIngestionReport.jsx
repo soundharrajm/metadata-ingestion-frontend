@@ -169,6 +169,11 @@ export default function ProjectMetadataIngestionReport() {
     0
   )
 
+  // Total item count across all categories for one status group (e.g.
+  // combinedGrid.movie.published) -- used for the new Total Count column,
+  // the count-based equivalent of sumDuration.
+  const sumCount = (statusGroup) => CATEGORIES.reduce((sum, cat) => sum + statusGroup[cat].length, 0)
+
   // Totals across ALL statuses for one group (e.g. combinedGrid.movie or
   // dateGrid['2026-08-01']) -- used for the collapsed group-header row,
   // which shows the combined Published+Draft+Archived+Purged+Unknown
@@ -179,7 +184,8 @@ export default function ProjectMetadataIngestionReport() {
       perCategory[cat] = Object.values(group).reduce((sum, statusGroup) => sum + statusGroup[cat].length, 0)
     })
     const duration = Object.values(group).reduce((sum, statusGroup) => sum + sumDuration(statusGroup), 0)
-    return { perCategory, duration }
+    const totalCount = Object.values(perCategory).reduce((sum, c) => sum + c, 0)
+    return { perCategory, duration, totalCount }
   }
 
   const downloadExcel = async () => {
@@ -357,6 +363,9 @@ export default function ProjectMetadataIngestionReport() {
                   </th>
                 ))}
                 <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
+                  Total Count
+                </th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
                   Duration (hrs)
                 </th>
               </tr>
@@ -380,10 +389,15 @@ export default function ProjectMetadataIngestionReport() {
                       ))}
                       {!isExpanded && (
                         <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                          {totals.totalCount}
+                        </td>
+                      )}
+                      {!isExpanded && (
+                        <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: C.text, borderBottom: `1px solid ${C.border}` }}>
                           {totals.duration.toFixed(2)}
                         </td>
                       )}
-                      {isExpanded && <td colSpan={1 + CATEGORIES.length} style={{ borderBottom: `1px solid ${C.border}` }} />}
+                      {isExpanded && <td colSpan={2 + CATEGORIES.length} style={{ borderBottom: `1px solid ${C.border}` }} />}
                     </tr>
                     {isExpanded && subStatusRows.map(status => (
                       <tr key={`${ct}-${status}`}>
@@ -393,6 +407,9 @@ export default function ProjectMetadataIngestionReport() {
                         {CATEGORIES.map(cat => (
                           <Cell key={cat} items={combinedGrid[ct][status][cat]} onClick={setDrillDown} />
                         ))}
+                        <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                          {sumCount(combinedGrid[ct][status])}
+                        </td>
                         <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}` }}>
                           {sumDuration(combinedGrid[ct][status]).toFixed(2)}
                         </td>
@@ -418,6 +435,9 @@ export default function ProjectMetadataIngestionReport() {
                   </th>
                 ))}
                 <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
+                  Total Count
+                </th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8' }}>
                   Duration (hrs)
                 </th>
               </tr>
@@ -441,10 +461,15 @@ export default function ProjectMetadataIngestionReport() {
                       ))}
                       {!isExpanded && (
                         <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                          {totals.totalCount}
+                        </td>
+                      )}
+                      {!isExpanded && (
+                        <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: C.text, borderBottom: `1px solid ${C.border}` }}>
                           {totals.duration.toFixed(2)}
                         </td>
                       )}
-                      {isExpanded && <td colSpan={1 + CATEGORIES.length} style={{ borderBottom: `1px solid ${C.border}` }} />}
+                      {isExpanded && <td colSpan={2 + CATEGORIES.length} style={{ borderBottom: `1px solid ${C.border}` }} />}
                     </tr>
                     {isExpanded && subStatusRows.map(status => (
                       <tr key={`${d}-${status}`}>
@@ -454,6 +479,9 @@ export default function ProjectMetadataIngestionReport() {
                         {CATEGORIES.map(cat => (
                           <Cell key={cat} items={dateGrid[d][status][cat]} onClick={setDrillDown} />
                         ))}
+                        <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                          {sumCount(dateGrid[d][status])}
+                        </td>
                         <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}` }}>
                           {sumDuration(dateGrid[d][status]).toFixed(2)}
                         </td>
