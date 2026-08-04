@@ -33,6 +33,25 @@ export default function ProjectMetadataIngestionReport() {
     })
   }
 
+  // Clicking the heading resets back to the initial "pick a project"
+  // state -- this is a single-page app with no separate route to
+  // navigate to, so this is the equivalent of a site logo/title taking
+  // you "home". Deliberately keeps months/year as-is: someone switching
+  // projects most likely wants the same reporting period, not to
+  // re-enter it every time.
+  const goHome = () => {
+    setProjectId('')
+    setRows([])
+    setDvbRows([])
+    setError(null)
+    setDrillDown(null)
+    setDvbStatus(null)
+    setActiveTab('main')
+    setExpandedGroups(new Set())
+    setContentTypeFilter('all')
+    setL2vFilter('all')
+  }
+
   useEffect(() => {
     fetch(`${API_BASE}/projects`, { headers: FETCH_HEADERS })
       .then(r => r.json())
@@ -219,7 +238,15 @@ export default function ProjectMetadataIngestionReport() {
   return (
     <div style={{ fontFamily: '-apple-system, Segoe UI, Roboto, sans-serif', background: '#f8f8fc', minHeight: '100vh', color: C.text }}>
       <header style={{ padding: '16px 24px', background: '#fff', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: 16, margin: 0, marginRight: 8 }}>{selectedProject ? selectedProject.name : 'Project'} Metadata Ingestion Report</h1>
+        <h1
+          onClick={goHome}
+          title="Click to switch project"
+          style={{ fontSize: 16, margin: 0, marginRight: 8, cursor: 'pointer' }}
+          onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+          onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+        >
+          {selectedProject ? selectedProject.name : 'Project'} Metadata Ingestion Report
+        </h1>
         <select value={projectId} onChange={e => setProjectId(e.target.value)} style={inputStyle}>
           <option value="">Select project…</option>
           {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
