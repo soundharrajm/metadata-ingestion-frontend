@@ -662,6 +662,8 @@ export default function ProjectMetadataIngestionReport() {
             ['restoration_status', 'Restoration Status'], ['restoration_file_type', 'Restoration File Type'],
             ['external_id', 'External ID'],
             ['source_file_name', 'File Name'],
+            ['video_created_time', 'Video Created Time'], ['encode_manifest_updated_time', 'Encode Manifest Updated Time'],
+            ['video_to_encode_diff_minutes', 'Video-to-Encode Diff (min)'],
             ['current_key_updated_date', 'Current Updated'],
             ['previous_key', 'Previous Key'], ['previous_key_updated_date', 'Previous Updated'],
             ['media_updated_date', 'Video/Audio/Caption/Image Created Date'],
