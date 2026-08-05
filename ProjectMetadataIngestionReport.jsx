@@ -9,6 +9,19 @@ import { buildCombinedCrossTab, buildDateStatusCrossTab, getAvailableDates } fro
 import Cell from './Cell.jsx'
 import DrillDownModal from './DrillDownModal.jsx'
 
+// Light highlight colors for the Content List tab's row-highlighting
+// feature -- deliberately soft/pastel, same idea as Excel's own cell fill
+// colors, so highlighted text stays readable rather than the background
+// overpowering it.
+const HIGHLIGHT_COLORS = [
+  { name: 'Yellow', hex: '#fff9c4' },
+  { name: 'Green', hex: '#c8e6c9' },
+  { name: 'Blue', hex: '#bbdefb' },
+  { name: 'Pink', hex: '#f8bbd0' },
+  { name: 'Orange', hex: '#ffe0b2' },
+  { name: 'Purple', hex: '#e1bee7' },
+]
+
 export default function ProjectMetadataIngestionReport() {
   const [projects, setProjects] = useState([])
   const [projectId, setProjectId] = useState('')
@@ -31,6 +44,8 @@ export default function ProjectMetadataIngestionReport() {
   const [activeTab, setActiveTab] = useState('main')
   const [expandedGroups, setExpandedGroups] = useState(new Set())
   const [contentListFilters, setContentListFilters] = useState([{ id: 0, col: 'content_id', val: '' }])
+  const [rowHighlights, setRowHighlights] = useState({})
+  const [colorPickerOpenFor, setColorPickerOpenFor] = useState(null)
 
   const toggleGroup = (key) => {
     setExpandedGroups(prev => {
@@ -663,7 +678,7 @@ export default function ProjectMetadataIngestionReport() {
             ['external_id', 'External ID'],
             ['source_file_name', 'File Name'],
             ['video_created_time', 'Video Created Time'], ['encode_manifest_updated_time', 'Encode Manifest Updated Time'],
-            ['video_to_encode_diff_minutes', 'Video-to-Encode Diff (min)'],
+            ['video_to_encode_diff', 'Video-to-Encode Diff (hh:mm:ss)'],
             ['current_key_updated_date', 'Current Updated'],
             ['previous_key', 'Previous Key'], ['previous_key_updated_date', 'Previous Updated'],
             ['media_updated_date', 'Video/Audio/Caption/Image Created Date'],
@@ -735,6 +750,7 @@ export default function ProjectMetadataIngestionReport() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr>
+                      <th style={{ padding: '10px 8px', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8', width: 32 }} />
                       {contentColumns.map(([key, label]) => (
                         <th key={key} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: `1px solid ${C.border}`, background: '#f0f0f8', whiteSpace: 'nowrap' }}>
                           {label}
@@ -743,17 +759,61 @@ export default function ProjectMetadataIngestionReport() {
                     </tr>
                   </thead>
                   <tbody>
-                    {searchedRows.map((r, i) => (
-                      <tr key={i}>
-                        {contentColumns.map(([key]) => (
-                          <td key={key} style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap', color: r[key] == null ? '#cbd5e1' : C.text }}>
-                            {key === 'is_l2v' ? (r[key] ? '✓' : '—')
-                              : key === 'duration_hours' ? (r[key] != null ? Number(r[key]).toFixed(2) : '—')
-                              : (r[key] ?? '—')}
+                    {searchedRows.map((r, i) => {
+                      const rowKey = r.current_key || i
+                      const highlightColor = rowHighlights[rowKey]
+                      return (
+                        <tr key={rowKey} style={{ background: highlightColor || 'transparent' }}>
+                          <td style={{ padding: '7px 8px', borderBottom: `1px solid ${C.border}`, position: 'relative', textAlign: 'center' }}>
+                            <button
+                              onClick={() => setColorPickerOpenFor(colorPickerOpenFor === rowKey ? null : rowKey)}
+                              title="Highlight this row"
+                              style={{
+                                width: 16, height: 16, borderRadius: '50%', cursor: 'pointer', padding: 0,
+                                border: `1.5px solid ${highlightColor ? '#00000033' : C.border}`,
+                                background: highlightColor || '#fff',
+                              }}
+                            />
+                            {colorPickerOpenFor === rowKey && (
+                              <div style={{
+                                position: 'absolute', top: '110%', left: 0, zIndex: 50,
+                                background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8,
+                                padding: 6, display: 'flex', gap: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                              }}>
+                                {HIGHLIGHT_COLORS.map(c => (
+                                  <button
+                                    key={c.hex}
+                                    title={c.name}
+                                    onClick={() => {
+                                      setRowHighlights(prev => ({ ...prev, [rowKey]: c.hex }))
+                                      setColorPickerOpenFor(null)
+                                    }}
+                                    style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid #00000022', background: c.hex, cursor: 'pointer', padding: 0 }}
+                                  />
+                                ))}
+                                <button
+                                  title="Clear highlight"
+                                  onClick={() => {
+                                    setRowHighlights(prev => { const next = { ...prev }; delete next[rowKey]; return next })
+                                    setColorPickerOpenFor(null)
+                                  }}
+                                  style={{ width: 18, height: 18, borderRadius: '50%', border: `1px solid ${C.border}`, background: '#fff', cursor: 'pointer', padding: 0, fontSize: 10, color: C.muted, lineHeight: 1 }}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
                           </td>
-                        ))}
-                      </tr>
-                    ))}
+                          {contentColumns.map(([key]) => (
+                            <td key={key} style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap', color: r[key] == null ? '#cbd5e1' : C.text }}>
+                              {key === 'is_l2v' ? (r[key] ? '✓' : '—')
+                                : key === 'duration_hours' ? (r[key] != null ? Number(r[key]).toFixed(2) : '—')
+                                : (r[key] ?? '—')}
+                            </td>
+                          ))}
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
