@@ -14,7 +14,7 @@ export default function DrillDownModal({ items, onClose }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead style={{ position: 'sticky', top: 0, background: '#f8f8fc' }}>
               <tr>
-                {['Content ID', 'Current Key', 'Content Title', 'Content Type', 'L2V', 'Duration (hrs)', 'MySQL Status', 'CB Status', 'Restoration Status', 'Restoration File Type', 'External ID', 'File Name', 'Current Updated', 'Previous Key', 'Video/Audio/Caption/Image Created Date'].map(h => (
+                {['Content ID', 'Current Key', 'Content Title', 'Content Type', 'L2V', 'Duration (hrs)', 'MySQL Status', 'CB Status', 'Restoration Status', 'Restoration File Type', 'External ID', 'File Name', 'Current Updated', 'Previous Key', 'Video/Audio/Caption/Image Created Date', 'Media File Type'].map(h => (
                   <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: C.muted, fontWeight: 600, borderBottom: `1px solid ${C.border}` }}>{h}</th>
                 ))}
               </tr>
@@ -37,6 +37,7 @@ export default function DrillDownModal({ items, onClose }) {
                   <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, color: C.muted }}>{r.current_key_updated_date}</td>
                   <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, fontFamily: C.mono, color: C.muted }}>{r.previous_key || '—'}</td>
                   <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, color: C.muted }}>{r.media_updated_date || '—'}</td>
+                  <td style={{ padding: '7px 12px', borderBottom: `1px solid ${C.border}`, color: C.muted }}>{r.media_updated_file_type || '—'}</td>
                 </tr>
               ))}
             </tbody>

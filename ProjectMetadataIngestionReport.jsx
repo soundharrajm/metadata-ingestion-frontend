@@ -642,6 +642,7 @@ export default function ProjectMetadataIngestionReport() {
             ['current_key_updated_date', 'Current Updated'],
             ['previous_key', 'Previous Key'], ['previous_key_updated_date', 'Previous Updated'],
             ['media_updated_date', 'Video/Audio/Caption/Image Created Date'],
+            ['media_updated_file_type', 'Media File Type'],
           ]
           // Every active filter (one with a non-empty value) must match
           // for a row to pass -- AND-combined, not just the last one
