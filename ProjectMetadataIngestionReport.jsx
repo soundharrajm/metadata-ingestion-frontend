@@ -779,9 +779,11 @@ export default function ProjectMetadataIngestionReport() {
             }}>
               Loading classification data…
             </div>
-            {queueStatus && queueStatus.waiting > 0 && (
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>
-                System is busy: {queueStatus.active} of {queueStatus.max_concurrent} query slots in use, {queueStatus.waiting} request{queueStatus.waiting === 1 ? '' : 's'} waiting for a slot (may include yours)
+            {queueStatus && (
+              <div style={{ fontSize: 12, color: queueStatus.waiting > 0 ? C.pu : C.muted, marginTop: 6, fontWeight: queueStatus.waiting > 0 ? 600 : 400 }}>
+                {queueStatus.waiting > 0
+                  ? `System is busy: ${queueStatus.active} of ${queueStatus.max_concurrent} query slots in use, ${queueStatus.waiting} request${queueStatus.waiting === 1 ? '' : 's'} waiting for a slot (may include yours)`
+                  : `Query slots: ${queueStatus.active} of ${queueStatus.max_concurrent} in use — no queue right now`}
               </div>
             )}
             <style>{`
