@@ -18,6 +18,7 @@ export default function ProjectMetadataIngestionReport() {
   const refreshTimerRef = useRef(null)
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
+  const [queueStatus, setQueueStatus] = useState(null)
   const [error, setError] = useState(null)
   const [drillDown, setDrillDown] = useState(null)
   const [dvbStatus, setDvbStatus] = useState(null)
@@ -114,6 +115,28 @@ export default function ProjectMetadataIngestionReport() {
   }, [])
 
   const selectedProject = projects.find(p => p.id === projectId)
+
+  // Polls /queue-status while a fetch is in flight -- the fetch request
+  // itself gives zero visibility into whether it's actively running
+  // against MySQL or still waiting for a free concurrency slot, since no
+  // response comes back until the whole thing (queue wait included) is
+  // done. This surfaces that live, separately.
+  useEffect(() => {
+    if (!loading) {
+      setQueueStatus(null)
+      return
+    }
+    let cancelled = false
+    const poll = () => {
+      fetch(`${API_BASE}/queue-status`, { headers: FETCH_HEADERS })
+        .then(r => r.json())
+        .then(data => { if (!cancelled) setQueueStatus(data) })
+        .catch(() => {})
+    }
+    poll()
+    const timer = setInterval(poll, 1000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [loading])
 
   const fetchData = async () => {
     if (!projectId) { setError('Select a project.'); return }
@@ -756,6 +779,11 @@ export default function ProjectMetadataIngestionReport() {
             }}>
               Loading classification data…
             </div>
+            {queueStatus && queueStatus.waiting > 0 && (
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>
+                System is busy: {queueStatus.active} of {queueStatus.max_concurrent} query slots in use, {queueStatus.waiting} request{queueStatus.waiting === 1 ? '' : 's'} waiting for a slot (may include yours)
+              </div>
+            )}
             <style>{`
               @keyframes pmir-line-slide { 0% { left: -40% } 50% { left: 60% } 100% { left: 100% } }
               @keyframes pmir-hue-shift { 0% { background-position: 0% 50% } 100% { background-position: 300% 50% } }
