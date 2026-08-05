@@ -3,13 +3,12 @@ import { C, CATEGORIES, CATEGORY_LABELS, CB_STATUSES, STATUS_LABELS, STATUS_COLO
 import { buildCombinedCrossTab, buildDateStatusCrossTab, getAvailableDates } from './crossTab.js'
 import Cell from './Cell.jsx'
 import DrillDownModal from './DrillDownModal.jsx'
-import MonthYearPicker from './MonthYearPicker.jsx'
 
 export default function ProjectMetadataIngestionReport() {
   const [projects, setProjects] = useState([])
   const [projectId, setProjectId] = useState('')
-  const [months, setMonths] = useState('7')
-  const [year, setYear] = useState(2026)
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -35,10 +34,47 @@ export default function ProjectMetadataIngestionReport() {
     })
   }
 
+  // Resolves fromDate/toDate to their actual values -- if either is left
+  // empty, defaults to the 1st of the current month at 00:00 through
+  // right now. Returns MySQL-format datetime strings ('YYYY-MM-DD
+  // HH:MM:SS'), which is what the backend's from_date/to_date params
+  // expect.
+  const resolveDateRange = () => {
+    const now = new Date()
+    const pad = n => String(n).padStart(2, '0')
+    const toMysqlFormat = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+
+    const defaultFrom = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
+    const resolvedFrom = fromDate ? toMysqlFormat(new Date(fromDate)) : toMysqlFormat(defaultFrom)
+    const resolvedTo = toDate ? toMysqlFormat(new Date(toDate)) : toMysqlFormat(now)
+    return { resolvedFrom, resolvedTo }
+  }
+
+  // DVB fetch (Harmonic) and the Excel export's Date Wise sectioning both
+  // still specifically need a months[]/year internally -- Harmonic's own
+  // API has no date-range filtering at all, only client-side month/year
+  // filtering (confirmed in this codebase's history), and the Excel
+  // sectioning logic splits by calendar month. Rather than rewrite both
+  // of those to understand arbitrary date ranges, this derives the
+  // equivalent "every month touched by this range" list from whatever
+  // from/to was actually resolved -- e.g. Aug 20 - Sep 5 becomes [8, 9].
+  const deriveMonthsFromRange = (fromStr, toStr) => {
+    const from = new Date(fromStr)
+    const to = new Date(toStr)
+    const months = new Set()
+    let cursor = new Date(from.getFullYear(), from.getMonth(), 1)
+    const end = new Date(to.getFullYear(), to.getMonth(), 1)
+    while (cursor <= end) {
+      months.add(cursor.getMonth() + 1)
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
+    }
+    return { months: [...months], year: from.getFullYear() }
+  }
+
   // Clicking the heading resets back to the initial "pick a project"
   // state -- this is a single-page app with no separate route to
   // navigate to, so this is the equivalent of a site logo/title taking
-  // you "home". Deliberately keeps months/year as-is: someone switching
+  // you "home". Deliberately keeps fromDate/toDate as-is: someone switching
   // projects most likely wants the same reporting period, not to
   // re-enter it every time.
   const goHome = () => {
@@ -74,10 +110,11 @@ export default function ProjectMetadataIngestionReport() {
   const selectedProject = projects.find(p => p.id === projectId)
 
   const fetchData = async () => {
-    if (!projectId || !months || !year) { setError('Select a project and enter months/year.'); return }
+    if (!projectId) { setError('Select a project.'); return }
     setError(null); setLoading(true)
     try {
-      const params = `project_id=${encodeURIComponent(projectId)}&months=${encodeURIComponent(months)}&year=${encodeURIComponent(year)}`
+      const { resolvedFrom, resolvedTo } = resolveDateRange()
+      const params = `project_id=${encodeURIComponent(projectId)}&from_date=${encodeURIComponent(resolvedFrom)}&to_date=${encodeURIComponent(resolvedTo)}`
       const res = await fetch(`${API_BASE}/ingestion/classification-with-status?${params}`, { headers: FETCH_HEADERS })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to fetch classification')
@@ -106,10 +143,16 @@ export default function ProjectMetadataIngestionReport() {
   }
 
   const fetchDvb = async () => {
-    if (!projectId || !months || !year) return
+    if (!projectId) return
     setDvbStatus('loading')
     try {
-      const params = `project_id=${encodeURIComponent(projectId)}&months=${encodeURIComponent(months)}&year=${encodeURIComponent(year)}`
+      const { resolvedFrom, resolvedTo } = resolveDateRange()
+      // Harmonic's API has no date-range filtering at all -- only
+      // month/year, applied client-side -- so this derives the months[]
+      // this range actually touches, rather than passing the range
+      // through directly (which the backend route doesn't accept here).
+      const { months: derivedMonths, year: derivedYear } = deriveMonthsFromRange(resolvedFrom, resolvedTo)
+      const params = `project_id=${encodeURIComponent(projectId)}&months=${encodeURIComponent(derivedMonths.join(','))}&year=${encodeURIComponent(derivedYear)}`
       const res = await fetch(`${API_BASE}/dvb/fetch?${params}`, { headers: FETCH_HEADERS })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'DVB fetch failed')
@@ -191,11 +234,17 @@ export default function ProjectMetadataIngestionReport() {
   }
 
   const downloadExcel = async () => {
-    if (!projectId || !months || !year) { setError('Select a project and enter months/year.'); return }
+    if (!projectId) { setError('Select a project.'); return }
     if (rows.length === 0) { setError('Fetch data first, then download.'); return }
     setError(null); setExporting(true)
     try {
-      const monthList = months.split(',').map(m => parseInt(m.trim())).filter(Boolean)
+      // build_ingestion_excel's Date Wise sheet sections by calendar
+      // month, so it still needs months[]/year specifically -- derived
+      // from the same resolved from/to range the data was actually
+      // fetched with, so the sections line up with what's really in the
+      // data rather than an arbitrary/stale month selection.
+      const { resolvedFrom, resolvedTo } = resolveDateRange()
+      const { months: monthList, year } = deriveMonthsFromRange(resolvedFrom, resolvedTo)
       const res = await fetch(`${API_BASE}/ingestion/export`, {
         method: 'POST',
         headers: { ...FETCH_HEADERS, 'Content-Type': 'application/json' },
@@ -210,7 +259,7 @@ export default function ProjectMetadataIngestionReport() {
         body: JSON.stringify({
           project_name: selectedProject?.name || projectId,
           months: monthList,
-          year: parseInt(year),
+          year,
           rows,
           dvb_rows: dvbRows,
           include_dvb: includeDvb,
@@ -259,7 +308,26 @@ export default function ProjectMetadataIngestionReport() {
           <option value="">Select project…</option>
           {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <MonthYearPicker months={months} year={year} onMonthsChange={setMonths} onYearChange={setYear} />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: C.muted }}>
+          From
+          <input
+            type="datetime-local"
+            value={fromDate}
+            onChange={e => setFromDate(e.target.value)}
+            title="Leave empty to default to the 1st of the current month, 00:00"
+            style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }}
+          />
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: C.muted }}>
+          To
+          <input
+            type="datetime-local"
+            value={toDate}
+            onChange={e => setToDate(e.target.value)}
+            title="Leave empty to default to right now"
+            style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }}
+          />
+        </label>
         <button onClick={fetchData} disabled={loading} style={{ ...btnStyle, opacity: loading ? 0.6 : 1 }}>{loading ? 'Loading…' : 'Fetch'}</button>
         {selectedProject?.has_dvb && (
           <>
