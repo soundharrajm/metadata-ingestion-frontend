@@ -690,7 +690,7 @@ export default function ProjectMetadataIngestionReport() {
 
           return (
             <div>
-              <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
                 {contentListFilters.map(f => (
                   <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <select
