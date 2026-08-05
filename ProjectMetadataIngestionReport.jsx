@@ -1,4 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
+import { TextField, Select as MuiSelect, MenuItem, FormControl } from '@mui/material'
+import dayjs from 'dayjs'
 import { C, CATEGORIES, CATEGORY_LABELS, CB_STATUSES, STATUS_LABELS, STATUS_COLORS, API_BASE, FETCH_HEADERS } from './constants.js'
 import { buildCombinedCrossTab, buildDateStatusCrossTab, getAvailableDates } from './crossTab.js'
 import Cell from './Cell.jsx'
@@ -9,6 +14,8 @@ export default function ProjectMetadataIngestionReport() {
   const [projectId, setProjectId] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const [refreshInterval, setRefreshInterval] = useState('off')
+  const refreshTimerRef = useRef(null)
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -140,6 +147,30 @@ export default function ProjectMetadataIngestionReport() {
       setLoading(false)
     }
   }
+
+  // Auto-refresh: once an interval is picked (anything but 'off'), calls
+  // fetchData() on that cadence, updating rows/dvbRows in place -- same
+  // fetchData() the manual Fetch button uses, so both paths always stay
+  // consistent with each other. Cleared and restarted whenever the
+  // interval selection or project changes, and always cleared on
+  // unmount, so there's never more than one timer running or a stray
+  // timer left firing after leaving the page.
+  useEffect(() => {
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current)
+      refreshTimerRef.current = null
+    }
+    if (refreshInterval === 'off' || !projectId) return
+    const ms = { '30s': 30_000, '1m': 60_000, '5m': 300_000, '15m': 900_000 }[refreshInterval]
+    if (!ms) return
+    refreshTimerRef.current = setInterval(() => {
+      fetchData()
+    }, ms)
+    return () => {
+      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshInterval, projectId])
 
   const fetchDvb = async () => {
     if (!projectId) return
@@ -292,6 +323,7 @@ export default function ProjectMetadataIngestionReport() {
   const btnStyle = { padding: '7px 16px', borderRadius: 6, border: 'none', background: C.pu, color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }
 
   return (
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
     <div style={{ fontFamily: '-apple-system, Segoe UI, Roboto, sans-serif', background: '#f8f8fc', minHeight: '100vh', color: C.text }}>
       <header style={{ padding: '16px 24px', background: '#fff', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h1
@@ -307,27 +339,61 @@ export default function ProjectMetadataIngestionReport() {
           <option value="">Select project…</option>
           {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: C.muted }}>
-          From
-          <input
-            type="datetime-local"
-            value={fromDate}
-            onChange={e => setFromDate(e.target.value)}
-            title="Leave empty to default to the 1st of the current month, 00:00"
-            style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }}
-          />
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: C.muted }}>
-          To
-          <input
-            type="datetime-local"
-            value={toDate}
-            onChange={e => setToDate(e.target.value)}
-            title="Leave empty to default to right now"
-            style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }}
-          />
-        </label>
+        <DateTimePicker
+          label="From"
+          value={fromDate ? dayjs(fromDate) : null}
+          onChange={(newVal) => setFromDate(newVal && newVal.isValid() ? newVal.format('YYYY-MM-DDTHH:mm') : '')}
+          slotProps={{
+            textField: {
+              size: 'small',
+              helperText: 'Defaults to 1st of this month, 00:00',
+              sx: { width: 220, '& .MuiInputBase-input': { fontSize: 13, padding: '8px 10px' }, '& .MuiFormHelperText-root': { fontSize: 10, margin: 0 } },
+            },
+          }}
+        />
+        <DateTimePicker
+          label="To"
+          value={toDate ? dayjs(toDate) : null}
+          onChange={(newVal) => setToDate(newVal && newVal.isValid() ? newVal.format('YYYY-MM-DDTHH:mm') : '')}
+          slotProps={{
+            textField: {
+              size: 'small',
+              helperText: 'Defaults to right now',
+              sx: { width: 220, '& .MuiInputBase-input': { fontSize: 13, padding: '8px 10px' }, '& .MuiFormHelperText-root': { fontSize: 10, margin: 0 } },
+            },
+          }}
+        />
+        {(() => {
+          // Live preview of exactly what will actually be used when Fetch
+          // is clicked -- covers the gap left by datetime-local having no
+          // OK/Apply button of its own: this shows immediately whether a
+          // pick "took" and what the default resolves to when left empty,
+          // without needing to click Fetch first to find out.
+          const { resolvedFrom, resolvedTo } = resolveDateRange()
+          return (
+            <span style={{ fontSize: 11, color: C.muted, fontStyle: 'italic' }}>
+              Will fetch: {resolvedFrom} → {resolvedTo}
+            </span>
+          )
+        })()}
         <button onClick={fetchData} disabled={loading} style={{ ...btnStyle, opacity: loading ? 0.6 : 1 }}>{loading ? 'Loading…' : 'Fetch'}</button>
+        <FormControl size="small">
+          <MuiSelect
+            value={refreshInterval}
+            onChange={e => setRefreshInterval(e.target.value)}
+            title="Auto-refresh: re-fetches on this cadence once a project is selected, using whatever From/To is currently set"
+            sx={{ fontSize: 12, height: 34 }}
+          >
+            <MenuItem value="off" sx={{ fontSize: 12 }}>No auto-refresh</MenuItem>
+            <MenuItem value="30s" sx={{ fontSize: 12 }}>Refresh every 30s</MenuItem>
+            <MenuItem value="1m" sx={{ fontSize: 12 }}>Refresh every 1m</MenuItem>
+            <MenuItem value="5m" sx={{ fontSize: 12 }}>Refresh every 5m</MenuItem>
+            <MenuItem value="15m" sx={{ fontSize: 12 }}>Refresh every 15m</MenuItem>
+          </MuiSelect>
+        </FormControl>
+        {refreshInterval !== 'off' && (
+          <span style={{ fontSize: 11, color: C.pu, fontWeight: 600 }}>● auto-refreshing</span>
+        )}
         {selectedProject?.has_dvb && (
           <>
             <button onClick={fetchDvb} style={{ ...btnStyle, background: '#fff', color: C.muted, border: `1px solid ${C.border}` }}>Fetch DVB</button>
@@ -705,5 +771,6 @@ export default function ProjectMetadataIngestionReport() {
 
       <DrillDownModal items={drillDown} onClose={() => setDrillDown(null)} />
     </div>
+    </LocalizationProvider>
   )
 }
