@@ -22,8 +22,7 @@ export default function ProjectMetadataIngestionReport() {
   const [exporting, setExporting] = useState(false)
   const [activeTab, setActiveTab] = useState('main')
   const [expandedGroups, setExpandedGroups] = useState(new Set())
-  const [contentListFilterCol, setContentListFilterCol] = useState('content_id')
-  const [contentListFilterVal, setContentListFilterVal] = useState('')
+  const [contentListFilters, setContentListFilters] = useState([{ id: 0, col: 'content_id', val: '' }])
 
   const toggleGroup = (key) => {
     setExpandedGroups(prev => {
@@ -578,30 +577,67 @@ export default function ProjectMetadataIngestionReport() {
             ['previous_key', 'Previous Key'], ['previous_key_updated_date', 'Previous Updated'],
             ['media_updated_date', 'Video/Audio/Caption/Image Created Date'],
           ]
-          const filterValLower = contentListFilterVal.trim().toLowerCase()
-          const searchedRows = filterValLower
-            ? filteredRows.filter(r => String(r[contentListFilterCol] ?? '').toLowerCase().includes(filterValLower))
-            : filteredRows
+          // Every active filter (one with a non-empty value) must match
+          // for a row to pass -- AND-combined, not just the last one
+          // applied. A filter with an empty value is ignored entirely
+          // rather than matching everything or nothing.
+          const activeFilters = contentListFilters.filter(f => f.val.trim() !== '')
+          const searchedRows = activeFilters.length === 0
+            ? filteredRows
+            : filteredRows.filter(r =>
+                activeFilters.every(f => String(r[f.col] ?? '').toLowerCase().includes(f.val.trim().toLowerCase()))
+              )
+
+          const addFilter = () => {
+            setContentListFilters(prev => [...prev, { id: Date.now(), col: 'content_id', val: '' }])
+          }
+          const removeFilter = (id) => {
+            setContentListFilters(prev => prev.filter(f => f.id !== id))
+          }
+          const updateFilter = (id, patch) => {
+            setContentListFilters(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f))
+          }
 
           return (
             <div>
-              <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <select
-                  value={contentListFilterCol}
-                  onChange={e => setContentListFilterCol(e.target.value)}
-                  style={{ padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit' }}
-                >
-                  {contentColumns.map(([key, label]) => (
-                    <option key={key} value={key}>{label}</option>
-                  ))}
-                </select>
-                <input
-                  value={contentListFilterVal}
-                  onChange={e => setContentListFilterVal(e.target.value)}
-                  placeholder={`Filter value for ${contentColumns.find(([k]) => k === contentListFilterCol)?.[1] || ''}…`}
-                  style={{ padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', width: 300 }}
-                />
-                <span style={{ fontSize: 12, color: C.muted }}>{searchedRows.length} of {filteredRows.length} rows</span>
+              <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {contentListFilters.map(f => (
+                  <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <select
+                      value={f.col}
+                      onChange={e => updateFilter(f.id, { col: e.target.value })}
+                      style={{ padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit' }}
+                    >
+                      {contentColumns.map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                    <input
+                      value={f.val}
+                      onChange={e => updateFilter(f.id, { val: e.target.value })}
+                      placeholder={`Filter value for ${contentColumns.find(([k]) => k === f.col)?.[1] || ''}…`}
+                      style={{ padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', width: 300 }}
+                    />
+                    {contentListFilters.length > 1 && (
+                      <button
+                        onClick={() => removeFilter(f.id)}
+                        title="Remove this filter"
+                        style={{ border: 'none', background: 'none', color: C.muted, fontSize: 16, cursor: 'pointer', padding: '0 4px' }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <button
+                    onClick={addFilter}
+                    style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#fff', color: C.pu, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
+                  >
+                    + Add Filter
+                  </button>
+                  <span style={{ fontSize: 12, color: C.muted }}>{searchedRows.length} of {filteredRows.length} rows</span>
+                </div>
               </div>
               <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
