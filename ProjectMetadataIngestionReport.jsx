@@ -346,8 +346,8 @@ export default function ProjectMetadataIngestionReport() {
           slotProps={{
             textField: {
               size: 'small',
-              helperText: 'Defaults to 1st of this month, 00:00',
-              sx: { width: 220, '& .MuiInputBase-input': { fontSize: 13, padding: '8px 10px' }, '& .MuiFormHelperText-root': { fontSize: 10, margin: 0 } },
+              title: 'Leave empty to default to the 1st of this month, 00:00',
+              sx: { width: 200, '& .MuiInputBase-input': { fontSize: 13, padding: '8px 10px' } },
             },
           }}
         />
@@ -358,8 +358,8 @@ export default function ProjectMetadataIngestionReport() {
           slotProps={{
             textField: {
               size: 'small',
-              helperText: 'Defaults to right now',
-              sx: { width: 220, '& .MuiInputBase-input': { fontSize: 13, padding: '8px 10px' }, '& .MuiFormHelperText-root': { fontSize: 10, margin: 0 } },
+              title: 'Leave empty to default to right now',
+              sx: { width: 200, '& .MuiInputBase-input': { fontSize: 13, padding: '8px 10px' } },
             },
           }}
         />
