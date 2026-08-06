@@ -49,18 +49,32 @@ export const FETCH_HEADERS = { 'ngrok-skip-browser-warning': 'true' }
 // Resolves which backend base URL to actually use, checking reachability
 // at RUNTIME rather than trusting the build-time API_BASE blindly. Tries
 // API_BASE first (a deployed/tunneled backend meant to be reachable by
-// anyone); if that doesn't respond within a short timeout, falls back to
-// http://localhost:8000 -- covering the case where a specific user runs
-// their OWN backend locally instead of relying on a shared one. Caches
-// the result in-memory for the rest of the session once resolved, so
-// every subsequent fetch call doesn't re-run this health check --
-// only re-checks if explicitly asked to (see forceRecheck below).
+// anyone); if that doesn't respond within a short timeout, scans a list
+// of candidate ports on localhost (see LOCAL_FALLBACK_PORTS below) and
+// uses whichever one actually answers -- covering the case where a
+// specific user runs their OWN backend locally, possibly on a different
+// port than the default. Caches the result in-memory for the rest of
+// the session once resolved, so every subsequent fetch call doesn't
+// re-run this health check -- only re-checks if explicitly asked to
+// (see forceRecheck below).
 //
 // This does NOT solve reachability by itself -- if API_BASE is
-// unreachable AND the user has nothing running on their own localhost
-// either, this correctly falls through to reporting that (via the
-// caller's own error handling), rather than silently defaulting to a
-// URL that doesn't work.
+// unreachable AND the user has nothing running on any of the candidate
+// local ports either, this correctly falls through to reporting that
+// (via the caller's own error handling), rather than silently defaulting
+// to a URL that doesn't work.
+//
+// Single place to change which local ports get tried: edit this array,
+// or set VITE_LOCAL_PORTS (comma-separated, e.g. "8000,8080,5000") to
+// override it without touching code at all. 8000 is listed first since
+// it's the backend's own default (see BACKEND_PORT in app.py) --
+// matched first for the common case where nothing's been changed on
+// either side.
+export const LOCAL_FALLBACK_PORTS = (import.meta.env.VITE_LOCAL_PORTS
+  ? import.meta.env.VITE_LOCAL_PORTS.split(',').map(p => p.trim())
+  : ['8000', '8080', '8888', '5000']
+)
+
 let _resolvedApiBase = null
 
 export async function resolveApiBase(forceRecheck = false) {
@@ -84,16 +98,20 @@ export async function resolveApiBase(forceRecheck = false) {
     return _resolvedApiBase
   }
 
-  // Only worth trying a separate localhost fallback if API_BASE isn't
-  // ALREADY localhost:8000 -- otherwise this would just repeat the exact
-  // same failed check a second time for no reason.
-  const localFallback = 'http://localhost:8000'
-  if (API_BASE !== localFallback && await tryReach(localFallback)) {
-    _resolvedApiBase = localFallback
-    return _resolvedApiBase
+  // Try each candidate local port in turn, stopping at the first one
+  // that actually answers -- skips any port that's identical to API_BASE
+  // itself (already just failed above, no point repeating that exact
+  // check).
+  for (const port of LOCAL_FALLBACK_PORTS) {
+    const candidate = `http://localhost:${port}`
+    if (candidate === API_BASE) continue
+    if (await tryReach(candidate)) {
+      _resolvedApiBase = candidate
+      return _resolvedApiBase
+    }
   }
 
-  // Both failed -- fall through to API_BASE anyway (rather than null),
+  // All failed -- fall through to API_BASE anyway (rather than null),
   // so the caller's own fetch still runs and produces a real, specific
   // network error the user can see, instead of this function silently
   // returning nothing and masking what actually went wrong.
