@@ -144,6 +144,27 @@ export default function ProjectMetadataIngestionReport() {
       .catch(e => setError(e.message))
   }
 
+  // Checks reachability of whatever apiBase is CURRENTLY ACTIVE, every
+  // time it changes -- covers the initial page load (whether that lands
+  // on a saved manual port or the resolved ngrok URL), and any later
+  // Apply/Clear. Previously this only ran on the port input's onBlur,
+  // which never fires on a fresh page load with a port already restored
+  // from localStorage -- confirmed real symptom: the dot stayed gray
+  // forever after a reload even though the backend was actually
+  // reachable, since nothing had triggered a check at all.
+  useEffect(() => {
+    if (!apiBase) return
+    let cancelled = false
+    setPortStatus('checking')
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 3000)
+    fetch(`${apiBase}/health`, { headers: FETCH_HEADERS, signal: controller.signal })
+      .then(res => { if (!cancelled) setPortStatus(res.ok ? 'ok' : 'fail') })
+      .catch(() => { if (!cancelled) setPortStatus('fail') })
+      .finally(() => clearTimeout(timer))
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [apiBase])
+
   useEffect(() => {
     // A saved manual port means "always talk to my own local backend,
     // full stop" -- skip resolveApiBase()'s network probing (ngrok
