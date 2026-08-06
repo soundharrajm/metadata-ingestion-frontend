@@ -901,7 +901,9 @@ export default function ProjectMetadataIngestionReport() {
           )
         })()}
 
-        {loading && (
+        {/* First load: no rows on screen yet, so a full-page block is safe --
+            nothing shifts because there's nothing else to shift. */}
+        {loading && rows.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 200px)', textAlign: 'center' }}>
             <div style={{ width: 360, height: 7, marginBottom: 20, background: C.border, borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
               <div style={{
@@ -927,6 +929,45 @@ export default function ProjectMetadataIngestionReport() {
                   ? `System is busy: ${queueStatus.active} of ${queueStatus.max_concurrent} query slots in use, ${queueStatus.waiting} request${queueStatus.waiting === 1 ? '' : 's'} waiting for a slot (may include yours)`
                   : `Query slots: ${queueStatus.active} of ${queueStatus.max_concurrent} in use — no queue right now`}
               </div>
+            )}
+            <style>{`
+              @keyframes pmir-line-slide { 0% { left: -40% } 50% { left: 60% } 100% { left: 100% } }
+              @keyframes pmir-hue-shift { 0% { background-position: 0% 50% } 100% { background-position: 300% 50% } }
+            `}</style>
+          </div>
+        )}
+
+        {/* Refetch (e.g. changing an input field and hitting Fetch again):
+            the old table is still on screen -- every table section is
+            gated on rows.length > 0, not on !loading. Rendering the
+            full-page block here too used to add ~100vh of extra document
+            height below the existing table, so the page scrolled down
+            while loading and then visibly "snapped" back up the instant
+            loading finished and that block unmounted. Fixed positioning
+            adds zero document height, so nothing shifts and no scroll jump. */}
+        {loading && rows.length > 0 && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
+            padding: '10px 16px', background: 'rgba(255,255,255,0.96)',
+            borderBottom: `1px solid ${C.border}`, boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            <div style={{ width: 160, height: 5, background: C.border, borderRadius: 6, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
+              <div style={{
+                position: 'absolute', top: 0, left: 0, height: '100%', width: '40%',
+                background: 'linear-gradient(90deg, #7c6af7, #2563eb, #16a34a, #d97706, #dc2626, #7c6af7)',
+                backgroundSize: '300% 100%',
+                borderRadius: 6,
+                animation: 'pmir-line-slide 1.2s ease-in-out infinite, pmir-hue-shift 2s linear infinite',
+              }} />
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Refreshing…</span>
+            {queueStatus && (
+              <span style={{ fontSize: 12, color: queueStatus.waiting > 0 ? C.pu : C.muted, fontWeight: queueStatus.waiting > 0 ? 600 : 400 }}>
+                {queueStatus.waiting > 0
+                  ? `Busy: ${queueStatus.active}/${queueStatus.max_concurrent} slots, ${queueStatus.waiting} waiting`
+                  : `Query slots: ${queueStatus.active}/${queueStatus.max_concurrent} in use — no queue`}
+              </span>
             )}
             <style>{`
               @keyframes pmir-line-slide { 0% { left: -40% } 50% { left: 60% } 100% { left: 100% } }
