@@ -4,7 +4,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { TextField, Select as MuiSelect, MenuItem, FormControl } from '@mui/material'
 import dayjs from 'dayjs'
-import { C, CATEGORIES, CATEGORY_LABELS, CB_STATUSES, STATUS_LABELS, STATUS_COLORS, API_BASE, FETCH_HEADERS } from './constants.js'
+import { C, CATEGORIES, CATEGORY_LABELS, CB_STATUSES, STATUS_LABELS, STATUS_COLORS, API_BASE, FETCH_HEADERS, resolveApiBase } from './constants.js'
 import { buildCombinedCrossTab, buildDateStatusCrossTab, getAvailableDates } from './crossTab.js'
 import Cell from './Cell.jsx'
 import DrillDownModal from './DrillDownModal.jsx'
@@ -24,6 +24,7 @@ const HIGHLIGHT_COLORS = [
 
 export default function ProjectMetadataIngestionReport() {
   const [projects, setProjects] = useState([])
+  const [apiBase, setApiBase] = useState(API_BASE)
   const [projectId, setProjectId] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -46,6 +47,8 @@ export default function ProjectMetadataIngestionReport() {
   const [contentListFilters, setContentListFilters] = useState([{ id: 0, col: 'content_id', val: '' }])
   const [rowHighlights, setRowHighlights] = useState({})
   const [colorPickerOpenFor, setColorPickerOpenFor] = useState(null)
+  const [selectedExportColumns, setSelectedExportColumns] = useState([])
+  const [showExportColumnPicker, setShowExportColumnPicker] = useState(false)
 
   const toggleGroup = (key) => {
     setExpandedGroups(prev => {
@@ -113,20 +116,23 @@ export default function ProjectMetadataIngestionReport() {
   }
 
   useEffect(() => {
-    fetch(`${API_BASE}/projects`, { headers: FETCH_HEADERS })
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setProjects(data)
-        } else {
-          // Most likely an error object (e.g. {error: "..."}) or some
-          // other unexpected shape -- storing it as-is would silently
-          // break every later projects.find() call with an opaque
-          // "X.find is not a function" instead of a real error message.
-          setError(data?.error || 'Failed to load projects: unexpected response from server.')
-        }
-      })
-      .catch(e => setError(e.message))
+    resolveApiBase().then(resolved => {
+      setApiBase(resolved)
+      fetch(`${resolved}/projects`, { headers: FETCH_HEADERS })
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setProjects(data)
+          } else {
+            // Most likely an error object (e.g. {error: "..."}) or some
+            // other unexpected shape -- storing it as-is would silently
+            // break every later projects.find() call with an opaque
+            // "X.find is not a function" instead of a real error message.
+            setError(data?.error || 'Failed to load projects: unexpected response from server.')
+          }
+        })
+        .catch(e => setError(e.message))
+    })
   }, [])
 
   const selectedProject = projects.find(p => p.id === projectId)
@@ -143,7 +149,7 @@ export default function ProjectMetadataIngestionReport() {
     }
     let cancelled = false
     const poll = () => {
-      fetch(`${API_BASE}/queue-status`, { headers: FETCH_HEADERS })
+      fetch(`${apiBase}/queue-status`, { headers: FETCH_HEADERS })
         .then(r => r.json())
         .then(data => { if (!cancelled) setQueueStatus(data) })
         .catch(() => {})
@@ -159,7 +165,7 @@ export default function ProjectMetadataIngestionReport() {
     try {
       const { resolvedFrom, resolvedTo } = resolveDateRange()
       const params = `project_id=${encodeURIComponent(projectId)}&from_date=${encodeURIComponent(resolvedFrom)}&to_date=${encodeURIComponent(resolvedTo)}`
-      const res = await fetch(`${API_BASE}/ingestion/classification-with-status?${params}`, { headers: FETCH_HEADERS })
+      const res = await fetch(`${apiBase}/ingestion/classification-with-status?${params}`, { headers: FETCH_HEADERS })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to fetch classification')
       setRows(data.rows || [])
@@ -221,7 +227,7 @@ export default function ProjectMetadataIngestionReport() {
       // through directly (which the backend route doesn't accept here).
       const { months: derivedMonths, year: derivedYear } = deriveMonthsFromRange(resolvedFrom, resolvedTo)
       const params = `project_id=${encodeURIComponent(projectId)}&months=${encodeURIComponent(derivedMonths.join(','))}&year=${encodeURIComponent(derivedYear)}`
-      const res = await fetch(`${API_BASE}/dvb/fetch?${params}`, { headers: FETCH_HEADERS })
+      const res = await fetch(`${apiBase}/dvb/fetch?${params}`, { headers: FETCH_HEADERS })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'DVB fetch failed')
       setDvbRows(data.rows || [])
@@ -249,6 +255,42 @@ export default function ProjectMetadataIngestionReport() {
     if (!includeArchivedPurged && (r.cb_status === 'archived' || r.cb_status === 'purged')) return false
     return true
   })
+
+  // Static (not dependent on any state), so this lives at component
+  // level -- both the Content List tab's own rendering AND
+  // downloadExcel() (defined elsewhere in this component, needing the
+  // same list for the user's column-selection export) share this one
+  // definition rather than two copies that could drift out of sync.
+  const contentColumns = [
+    ['content_id', 'Content ID'], ['current_key', 'Current Key'],
+    ['content_title', 'Content Title'], ['content_type', 'Content Type'],
+    ['is_l2v', 'L2V'], ['duration_hours', 'Duration (hrs)'],
+    ['ingestion_category', 'Ingestion Category'],
+    ['mysql_status', 'MySQL Status'], ['cb_status', 'CB Status'],
+    ['restoration_status', 'Restoration Status'], ['restoration_file_type', 'Restoration File Type'],
+    ['external_id', 'External ID'],
+    ['source_file_name', 'File Name'],
+    ['video_created_time', 'Video Created Time'], ['encode_manifest_updated_time', 'Encode Manifest Updated Time'],
+    ['video_to_encode_diff', 'Video-to-Encode Diff (hh:mm:ss)'],
+    ['current_key_updated_date', 'Current Updated'],
+    ['previous_key', 'Previous Key'], ['previous_key_updated_date', 'Previous Updated'],
+    ['media_updated_date', 'Video/Audio/Caption/Image Created Date'],
+    ['media_updated_file_type', 'Media File Type'],
+  ]
+
+  // Every active filter (one with a non-empty value) must match for a
+  // row to pass -- AND-combined, not just the last one applied. A filter
+  // with an empty value is ignored entirely rather than matching
+  // everything or nothing. Computed at component level (not just inside
+  // the Content List tab's own render) for the same reason as
+  // contentColumns above -- downloadExcel() needs the exact same
+  // currently-filtered rows the user is actually looking at.
+  const activeContentListFilters = contentListFilters.filter(f => f.val.trim() !== '')
+  const searchedRows = activeContentListFilters.length === 0
+    ? filteredRows
+    : filteredRows.filter(r =>
+        activeContentListFilters.every(f => String(r[f.col] ?? '').toLowerCase().includes(f.val.trim().toLowerCase()))
+      )
 
 
   const combinedGrid = buildCombinedCrossTab(filteredRows, availableContentTypes)
@@ -313,7 +355,7 @@ export default function ProjectMetadataIngestionReport() {
       // data rather than an arbitrary/stale month selection.
       const { resolvedFrom, resolvedTo } = resolveDateRange()
       const { months: monthList, year } = deriveMonthsFromRange(resolvedFrom, resolvedTo)
-      const res = await fetch(`${API_BASE}/ingestion/export`, {
+      const res = await fetch(`${apiBase}/ingestion/export`, {
         method: 'POST',
         headers: { ...FETCH_HEADERS, 'Content-Type': 'application/json' },
         // Sends the data ALREADY sitting in this component's state --
@@ -332,6 +374,16 @@ export default function ProjectMetadataIngestionReport() {
           dvb_rows: dvbRows,
           include_dvb: includeDvb,
           include_archived_purged: includeArchivedPurged,
+          // Only included when the user actually picked columns on the
+          // Content List tab -- an empty selection means "skip this
+          // sheet entirely" (handled on the backend), not "export
+          // nothing" or "export everything" by default. Uses
+          // searchedRows so the export reflects the user's own current
+          // filters on that tab, not the full unfiltered rows list.
+          ...(selectedExportColumns.length > 0 ? {
+            content_list_columns: contentColumns.filter(([key]) => selectedExportColumns.includes(key)),
+            content_list_rows: searchedRows,
+          } : {}),
         }),
       })
       if (!res.ok) {
@@ -668,33 +720,6 @@ export default function ProjectMetadataIngestionReport() {
         )}
 
         {activeTab === 'contentList' && rows.length > 0 && (() => {
-          const contentColumns = [
-            ['content_id', 'Content ID'], ['current_key', 'Current Key'],
-            ['content_title', 'Content Title'], ['content_type', 'Content Type'],
-            ['is_l2v', 'L2V'], ['duration_hours', 'Duration (hrs)'],
-            ['ingestion_category', 'Ingestion Category'],
-            ['mysql_status', 'MySQL Status'], ['cb_status', 'CB Status'],
-            ['restoration_status', 'Restoration Status'], ['restoration_file_type', 'Restoration File Type'],
-            ['external_id', 'External ID'],
-            ['source_file_name', 'File Name'],
-            ['video_created_time', 'Video Created Time'], ['encode_manifest_updated_time', 'Encode Manifest Updated Time'],
-            ['video_to_encode_diff', 'Video-to-Encode Diff (hh:mm:ss)'],
-            ['current_key_updated_date', 'Current Updated'],
-            ['previous_key', 'Previous Key'], ['previous_key_updated_date', 'Previous Updated'],
-            ['media_updated_date', 'Video/Audio/Caption/Image Created Date'],
-            ['media_updated_file_type', 'Media File Type'],
-          ]
-          // Every active filter (one with a non-empty value) must match
-          // for a row to pass -- AND-combined, not just the last one
-          // applied. A filter with an empty value is ignored entirely
-          // rather than matching everything or nothing.
-          const activeFilters = contentListFilters.filter(f => f.val.trim() !== '')
-          const searchedRows = activeFilters.length === 0
-            ? filteredRows
-            : filteredRows.filter(r =>
-                activeFilters.every(f => String(r[f.col] ?? '').toLowerCase().includes(f.val.trim().toLowerCase()))
-              )
-
           const addFilter = () => {
             setContentListFilters(prev => [...prev, { id: Date.now(), col: 'content_id', val: '' }])
           }
@@ -736,7 +761,7 @@ export default function ProjectMetadataIngestionReport() {
                     )}
                   </div>
                 ))}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative' }}>
                   <button
                     onClick={addFilter}
                     style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#fff', color: C.pu, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
@@ -744,6 +769,61 @@ export default function ProjectMetadataIngestionReport() {
                     + Add Filter
                   </button>
                   <span style={{ fontSize: 12, color: C.muted }}>{searchedRows.length} of {filteredRows.length} rows</span>
+                  <button
+                    onClick={() => setShowExportColumnPicker(v => !v)}
+                    title="Choose which columns to include if you export this Content List view to Excel"
+                    style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: selectedExportColumns.length > 0 ? '#f0ecff' : '#fff', color: C.pu, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
+                  >
+                    {selectedExportColumns.length > 0 ? `${selectedExportColumns.length} column${selectedExportColumns.length === 1 ? '' : 's'} selected for export` : 'Select columns for export…'}
+                  </button>
+                  {showExportColumnPicker && (
+                    <div style={{
+                      position: 'absolute', top: '110%', left: 0, zIndex: 50,
+                      background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8,
+                      padding: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', width: 320, maxHeight: 320, overflowY: 'auto',
+                    }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: C.text }}>
+                        Columns to include in an exported "Content List" sheet
+                      </div>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>
+                        Leave none checked to skip adding this sheet entirely.
+                      </div>
+                      {contentColumns.map(([key, label]) => (
+                        <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', fontSize: 12, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedExportColumns.includes(key)}
+                            onChange={e => {
+                              setSelectedExportColumns(prev =>
+                                e.target.checked ? [...prev, key] : prev.filter(k => k !== key)
+                              )
+                            }}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                        <button
+                          onClick={() => setSelectedExportColumns(contentColumns.map(([key]) => key))}
+                          style={{ fontSize: 11, color: C.pu, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        >
+                          Select all
+                        </button>
+                        <button
+                          onClick={() => setSelectedExportColumns([])}
+                          style={{ fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        >
+                          Clear
+                        </button>
+                        <button
+                          onClick={() => setShowExportColumnPicker(false)}
+                          style={{ fontSize: 11, color: C.text, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginLeft: 'auto' }}
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
