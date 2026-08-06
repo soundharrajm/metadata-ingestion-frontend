@@ -49,6 +49,13 @@ export default function ProjectMetadataIngestionReport() {
   const [colorPickerOpenFor, setColorPickerOpenFor] = useState(null)
   const [selectedExportColumns, setSelectedExportColumns] = useState([])
   const [showExportColumnPicker, setShowExportColumnPicker] = useState(false)
+  // Direct localhost-port override -- when set, requests go straight to
+  // http://localhost:{port}, skipping resolveApiBase()'s own ngrok-first/
+  // port-scan logic entirely. Empty (the default) falls back to that
+  // existing behavior unchanged. Persisted so it survives a page reload
+  // rather than reverting to ngrok every time.
+  const [manualPort, setManualPort] = useState(() => localStorage.getItem('pmir_manual_port') || '')
+  const [portStatus, setPortStatus] = useState(null) // null | 'checking' | 'ok' | 'fail'
 
   const toggleGroup = (key) => {
     setExpandedGroups(prev => {
@@ -115,25 +122,91 @@ export default function ProjectMetadataIngestionReport() {
     setL2vFilter('all')
   }
 
+  // Loads /projects against whatever base URL is passed in -- shared by
+  // the initial resolve-on-mount effect AND applyManualPort() below, so
+  // both paths (auto-resolved vs. manually pinned port) stay in sync
+  // instead of having two separate copies of this fetch+error-handling
+  // logic that could drift apart.
+  const loadProjects = (base) => {
+    fetch(`${base}/projects`, { headers: FETCH_HEADERS })
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setProjects(data)
+        } else {
+          // Most likely an error object (e.g. {error: "..."}) or some
+          // other unexpected shape -- storing it as-is would silently
+          // break every later projects.find() call with an opaque
+          // "X.find is not a function" instead of a real error message.
+          setError(data?.error || 'Failed to load projects: unexpected response from server.')
+        }
+      })
+      .catch(e => setError(e.message))
+  }
+
   useEffect(() => {
+    // A saved manual port means "always talk to my own local backend,
+    // full stop" -- skip resolveApiBase()'s network probing (ngrok
+    // first, then a scan of candidate ports) entirely rather than
+    // racing it against an explicit choice the person already made.
+    if (manualPort) {
+      const base = `http://localhost:${manualPort}`
+      setApiBase(base)
+      loadProjects(base)
+      return
+    }
     resolveApiBase().then(resolved => {
       setApiBase(resolved)
-      fetch(`${resolved}/projects`, { headers: FETCH_HEADERS })
-        .then(r => r.json())
-        .then(data => {
-          if (Array.isArray(data)) {
-            setProjects(data)
-          } else {
-            // Most likely an error object (e.g. {error: "..."}) or some
-            // other unexpected shape -- storing it as-is would silently
-            // break every later projects.find() call with an opaque
-            // "X.find is not a function" instead of a real error message.
-            setError(data?.error || 'Failed to load projects: unexpected response from server.')
-          }
-        })
-        .catch(e => setError(e.message))
+      loadProjects(resolved)
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Applies (or clears) the manual port override. Saving a port switches
+  // apiBase straight to http://localhost:{port} with no reachability
+  // check gating it -- the person typing a port already knows what
+  // they're doing, and gating it behind a health check would just make
+  // "my backend takes a second to start" look like a rejected save.
+  // portStatus (via testPort below) is purely informational, shown next
+  // to the field, and never blocks the switch itself. Clearing the field
+  // and saving re-runs the normal resolveApiBase() flow (ngrok, then the
+  // local port scan) exactly like a fresh page load with nothing saved.
+  const applyManualPort = (rawPort) => {
+    const port = rawPort.trim()
+    setPortStatus(null)
+    if (port) {
+      localStorage.setItem('pmir_manual_port', port)
+      setManualPort(port)
+      const base = `http://localhost:${port}`
+      setApiBase(base)
+      loadProjects(base)
+    } else {
+      localStorage.removeItem('pmir_manual_port')
+      setManualPort('')
+      resolveApiBase(true).then(resolved => {
+        setApiBase(resolved)
+        loadProjects(resolved)
+      })
+    }
+  }
+
+  // Optional reachability check for the currently-typed port -- purely
+  // to show a green/red dot next to the field; never gates Save/Apply
+  // (see applyManualPort above).
+  const testPort = async (rawPort) => {
+    const port = rawPort.trim()
+    if (!port) { setPortStatus(null); return }
+    setPortStatus('checking')
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 2500)
+      const res = await fetch(`http://localhost:${port}/health`, { headers: FETCH_HEADERS, signal: controller.signal })
+      clearTimeout(timer)
+      setPortStatus(res.ok ? 'ok' : 'fail')
+    } catch {
+      setPortStatus('fail')
+    }
+  }
 
   const selectedProject = projects.find(p => p.id === projectId)
 
@@ -521,6 +594,38 @@ export default function ProjectMetadataIngestionReport() {
         <button onClick={downloadExcel} disabled={exporting || rows.length === 0} style={{ ...btnStyle, background: '#fff', color: C.pu, border: `1.5px solid ${C.pu}`, opacity: exporting || rows.length === 0 ? 0.5 : 1 }}>
           {exporting ? 'Exporting…' : '⬇ Download Excel'}
         </button>
+
+        <div style={{ width: 1, height: 20, background: C.border }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={`Currently talking to: ${apiBase}`}>
+          <span style={{
+            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+            background: portStatus === 'ok' ? C.green : portStatus === 'fail' ? C.red : portStatus === 'checking' ? C.amber : C.border,
+          }} />
+          <input
+            type="number"
+            value={manualPort}
+            onChange={e => setManualPort(e.target.value)}
+            onBlur={e => testPort(e.target.value)}
+            placeholder="Port (blank = ngrok)"
+            style={{ ...inputStyle, width: 130 }}
+          />
+          <button
+            onClick={() => applyManualPort(manualPort)}
+            title="Connect directly to http://localhost:{port} -- leave the field empty and click this to go back to ngrok / auto-detect"
+            style={{ ...btnStyle, padding: '7px 12px', fontSize: 12 }}
+          >
+            Apply
+          </button>
+          {manualPort && (
+            <button
+              onClick={() => applyManualPort('')}
+              title="Clear the manual port and go back to ngrok / auto-detect"
+              style={{ ...btnStyle, padding: '7px 12px', fontSize: 12, background: '#fff', color: C.muted, border: `1.5px solid ${C.border}` }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </header>
 
       {rows.length > 0 && (
