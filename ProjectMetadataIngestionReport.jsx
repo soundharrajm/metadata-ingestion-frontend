@@ -599,7 +599,7 @@ export default function ProjectMetadataIngestionReport() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={`Currently talking to: ${apiBase}`}>
           <span style={{
             width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-            background: portStatus === 'ok' ? C.green : portStatus === 'fail' ? C.red : portStatus === 'checking' ? C.amber : C.border,
+            background: portStatus === 'ok' ? '#166534' : portStatus === 'fail' ? C.red : portStatus === 'checking' ? C.amber : C.border,
           }} />
           <input
             type="number"
